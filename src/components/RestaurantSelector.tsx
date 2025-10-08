@@ -1,118 +1,136 @@
-import { useState } from 'react';
-import { Building2, Plus, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Plus, Store } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 import type { Restaurant } from '../lib/types';
-import { mockRestaurants } from '../lib/mockData';
 
 interface RestaurantSelectorProps {
   selectedRestaurant: Restaurant | null;
-  onSelectRestaurant: (restaurant: Restaurant | null) => void;
+  onSelectRestaurant: (restaurant: Restaurant) => void;
 }
 
 export function RestaurantSelector({ selectedRestaurant, onSelectRestaurant }: RestaurantSelectorProps) {
-  const [restaurants, setRestaurants] = useState<Restaurant[]>(mockRestaurants);
-  const [showForm, setShowForm] = useState(false);
-  const [formData, setFormData] = useState({
-    name: '',
-    address: '',
-    phone: '',
-  });
+  const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newRestaurantName, setNewRestaurantName] = useState('');
+  const [newRestaurantAddress, setNewRestaurantAddress] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    loadRestaurants();
+  }, []);
+
+  const loadRestaurants = async () => {
+    const { data, error } = await supabase
+      .from('restaurants')
+      .select('*')
+      .order('name');
+
+    if (error) {
+      console.error('Error loading restaurants:', error);
+      return;
+    }
+
+    setRestaurants(data || []);
+    if (data && data.length > 0 && !selectedRestaurant) {
+      onSelectRestaurant(data[0]);
+    }
+  };
+
+  const handleAddRestaurant = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newRestaurant: Restaurant = {
-      id: Date.now().toString(),
-      ...formData,
-      createdAt: new Date().toISOString(),
-    };
-    setRestaurants([...restaurants, newRestaurant]);
-    onSelectRestaurant(newRestaurant);
-    setFormData({ name: '', address: '', phone: '' });
-    setShowForm(false);
+    if (!newRestaurantName.trim()) return;
+
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('restaurants')
+      .insert([{ name: newRestaurantName, address: newRestaurantAddress }])
+      .select()
+      .single();
+
+    setLoading(false);
+
+    if (error) {
+      console.error('Error adding restaurant:', error);
+      return;
+    }
+
+    setRestaurants([...restaurants, data]);
+    onSelectRestaurant(data);
+    setNewRestaurantName('');
+    setNewRestaurantAddress('');
+    setShowAddForm(false);
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-sm p-6">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
-          <Building2 className="w-5 h-5 text-orange-600" />
-          Select Restaurant
-        </h2>
-        <button
-          onClick={() => setShowForm(!showForm)}
-          className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
+    <div className="bg-white rounded-lg shadow-sm p-4">
+      <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 text-gray-700 font-medium">
+          <Store className="w-4 h-4" />
+          Restaurant:
+        </div>
+
+        <select
+          value={selectedRestaurant?.id || ''}
+          onChange={(e) => {
+            const restaurant = restaurants.find(r => r.id === e.target.value);
+            if (restaurant) onSelectRestaurant(restaurant);
+          }}
+          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         >
-          {showForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-          {showForm ? 'Cancel' : 'New Restaurant'}
+          <option value="">Select a restaurant</option>
+          {restaurants.map((restaurant) => (
+            <option key={restaurant.id} value={restaurant.id}>
+              {restaurant.name}
+            </option>
+          ))}
+        </select>
+
+        <button
+          onClick={() => setShowAddForm(!showAddForm)}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors whitespace-nowrap"
+        >
+          <Plus className="w-4 h-4" />
+          Add
         </button>
       </div>
 
-      {showForm && (
-        <form onSubmit={handleSubmit} className="mb-6 p-4 bg-gray-50 rounded-lg space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Restaurant Name
-            </label>
+      {showAddForm && (
+        <form onSubmit={handleAddRestaurant} className="mt-4 p-4 bg-gray-50 rounded-lg">
+          <div className="space-y-3">
             <input
               type="text"
+              value={newRestaurantName}
+              onChange={(e) => setNewRestaurantName(e.target.value)}
+              placeholder="Restaurant name"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               required
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-              placeholder="The Golden Fork"
             />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Address
-            </label>
             <input
               type="text"
-              required
-              value={formData.address}
-              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-              placeholder="123 Main St, Downtown"
+              value={newRestaurantAddress}
+              onChange={(e) => setNewRestaurantAddress(e.target.value)}
+              placeholder="Address (optional)"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
+            <div className="flex gap-2">
+              <button
+                type="submit"
+                disabled={loading}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              >
+                {loading ? 'Adding...' : 'Add'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowAddForm(false)}
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Phone
-            </label>
-            <input
-              type="tel"
-              required
-              value={formData.phone}
-              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-              placeholder="(555) 123-4567"
-            />
-          </div>
-          <button
-            type="submit"
-            className="w-full px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
-          >
-            Create Restaurant
-          </button>
         </form>
       )}
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {restaurants.map((restaurant) => (
-          <button
-            key={restaurant.id}
-            onClick={() => onSelectRestaurant(restaurant)}
-            className={`p-4 rounded-lg border-2 transition-all text-left ${
-              selectedRestaurant?.id === restaurant.id
-                ? 'border-orange-600 bg-orange-50'
-                : 'border-gray-200 hover:border-orange-300 bg-white'
-            }`}
-          >
-            <h3 className="font-semibold text-gray-900 mb-2">{restaurant.name}</h3>
-            <p className="text-sm text-gray-600 mb-1">{restaurant.address}</p>
-            <p className="text-sm text-gray-600">{restaurant.phone}</p>
-          </button>
-        ))}
-      </div>
     </div>
   );
 }
