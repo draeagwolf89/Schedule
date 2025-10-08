@@ -7,6 +7,14 @@ interface ScheduleManagerProps {
   restaurant: Restaurant;
 }
 
+type Role = 'door' | 'gelato' | 'server';
+
+const ROLES: { value: Role; label: string; color: string }[] = [
+  { value: 'door', label: 'Door', color: 'bg-blue-50 border-blue-200 text-blue-800' },
+  { value: 'gelato', label: 'Gelato', color: 'bg-pink-50 border-pink-200 text-pink-800' },
+  { value: 'server', label: 'Server', color: 'bg-green-50 border-green-200 text-green-800' }
+];
+
 export function ScheduleManager({ restaurant }: ScheduleManagerProps) {
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -17,7 +25,7 @@ export function ScheduleManager({ restaurant }: ScheduleManagerProps) {
     date: '',
     start_time: '09:00',
     end_time: '17:00',
-    shift_type: 'AM' as 'AM' | 'PM'
+    role: 'server' as Role
   });
   const [loading, setLoading] = useState(false);
 
@@ -115,7 +123,12 @@ export function ScheduleManager({ restaurant }: ScheduleManagerProps) {
     setLoading(false);
 
     if (error) {
-      console.error('Error adding shift:', error);
+      if (error.code === '23505') {
+        alert('This employee already has a shift on this day. Each employee can only have one role per day.');
+      } else {
+        console.error('Error adding shift:', error);
+        alert('Error adding shift. Please try again.');
+      }
       return;
     }
 
@@ -128,7 +141,7 @@ export function ScheduleManager({ restaurant }: ScheduleManagerProps) {
       date: '',
       start_time: '09:00',
       end_time: '17:00',
-      shift_type: 'AM'
+      role: 'server'
     });
     setShowAddForm(false);
   };
@@ -172,6 +185,10 @@ export function ScheduleManager({ restaurant }: ScheduleManagerProps) {
     setShowAddForm(true);
   };
 
+  const getRoleColor = (role: Role) => {
+    return ROLES.find(r => r.value === role)?.color || 'bg-gray-50 border-gray-200 text-gray-800';
+  };
+
   const monthDates = getMonthDates();
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const currentMonthNumber = currentMonth.getMonth();
@@ -183,6 +200,14 @@ export function ScheduleManager({ restaurant }: ScheduleManagerProps) {
           <Calendar className="w-5 h-5" />
           Schedule
         </h2>
+        <div className="flex gap-4 text-xs">
+          {ROLES.map(role => (
+            <div key={role.value} className="flex items-center gap-2">
+              <div className={`w-3 h-3 rounded border ${role.color}`}></div>
+              <span className="text-gray-600">{role.label}</span>
+            </div>
+          ))}
+        </div>
       </div>
 
       {showAddForm && employees.length > 0 && (
@@ -223,15 +248,18 @@ export function ScheduleManager({ restaurant }: ScheduleManagerProps) {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Shift Type</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
                 <select
-                  value={formData.shift_type}
-                  onChange={(e) => setFormData({ ...formData, shift_type: e.target.value as 'AM' | 'PM' })}
+                  value={formData.role}
+                  onChange={(e) => setFormData({ ...formData, role: e.target.value as Role })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                   required
                 >
-                  <option value="AM">AM</option>
-                  <option value="PM">PM</option>
+                  {ROLES.map((role) => (
+                    <option key={role.value} value={role.value}>
+                      {role.label}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -326,12 +354,18 @@ export function ScheduleManager({ restaurant }: ScheduleManagerProps) {
               const isToday = formatDate(new Date()) === dateStr;
               const isCurrentMonth = date.getMonth() === currentMonthNumber;
 
+              const roleShifts = {
+                door: dayShifts.filter(s => s.role === 'door'),
+                gelato: dayShifts.filter(s => s.role === 'gelato'),
+                server: dayShifts.filter(s => s.role === 'server')
+              };
+
               return (
                 <div
                   key={dateStr}
                   onClick={() => handleDateClick(date)}
                   className={`
-                    border rounded-lg overflow-hidden min-h-[120px] cursor-pointer transition-all flex flex-col
+                    border rounded-lg overflow-hidden min-h-[140px] cursor-pointer transition-all flex flex-col
                     ${isCurrentMonth ? 'bg-white hover:bg-blue-50 hover:border-blue-300' : 'bg-gray-50 opacity-50'}
                     ${isToday ? 'border-2 border-blue-500' : 'border-gray-200'}
                   `}
@@ -342,30 +376,31 @@ export function ScheduleManager({ restaurant }: ScheduleManagerProps) {
                     {date.getDate()}
                   </div>
                   <div className="p-1 flex-1 overflow-y-auto space-y-1">
-                    {dayShifts.map((shift) => {
-                      const employee = employees.find(e => e.id === shift.employee_id);
-                      return (
-                        <div
-                          key={shift.id}
-                          onClick={(e) => e.stopPropagation()}
-                          className={`${
-                            shift.shift_type === 'AM' ? 'bg-blue-50 border-blue-200' : 'bg-orange-50 border-orange-200'
-                          } border rounded px-1.5 py-0.5 text-[10px] relative group`}
-                        >
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeleteShift(shift.id);
-                            }}
-                            className="absolute -top-1 -right-1 p-0.5 bg-white text-red-600 hover:bg-red-100 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
-                            title="Delete shift"
+                    {ROLES.map(role => {
+                      const shifts = roleShifts[role.value];
+                      return shifts.map((shift) => {
+                        const employee = employees.find(e => e.id === shift.employee_id);
+                        return (
+                          <div
+                            key={shift.id}
+                            onClick={(e) => e.stopPropagation()}
+                            className={`${getRoleColor(shift.role)} border rounded px-1.5 py-0.5 text-[10px] relative group`}
                           >
-                            <Trash2 className="w-2.5 h-2.5" />
-                          </button>
-                          <div className="font-medium text-gray-800">{employee?.name}</div>
-                          <div className="text-gray-600">{shift.shift_type}</div>
-                        </div>
-                      );
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteShift(shift.id);
+                              }}
+                              className="absolute -top-1 -right-1 p-0.5 bg-white text-red-600 hover:bg-red-100 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+                              title="Delete shift"
+                            >
+                              <Trash2 className="w-2.5 h-2.5" />
+                            </button>
+                            <div className="font-medium">{employee?.name}</div>
+                            <div className="uppercase text-[9px] font-semibold">{ROLES.find(r => r.value === shift.role)?.label}</div>
+                          </div>
+                        );
+                      });
                     })}
                   </div>
                 </div>

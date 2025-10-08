@@ -75,7 +75,7 @@ export type Database = {
           date: string;
           start_time: string;
           end_time: string;
-          shift_type: 'AM' | 'PM';
+          role: 'door' | 'gelato' | 'server';
           created_at: string;
         };
         Insert: {
@@ -85,7 +85,7 @@ export type Database = {
           date: string;
           start_time: string;
           end_time: string;
-          shift_type: 'AM' | 'PM';
+          role: 'door' | 'gelato' | 'server';
           created_at?: string;
         };
         Update: {
@@ -95,7 +95,7 @@ export type Database = {
           date?: string;
           start_time?: string;
           end_time?: string;
-          shift_type?: 'AM' | 'PM';
+          role?: 'door' | 'gelato' | 'server';
           created_at?: string;
         };
       };
