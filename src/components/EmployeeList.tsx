@@ -111,8 +111,7 @@ export function EmployeeList({ restaurant }: EmployeeListProps) {
       .from('employees')
       .insert([{
         name: formData.name,
-        username: formData.username,
-        phone: '',
+        phone: formData.username,
         email: emailForAuth,
         roles: formData.roles,
         auth_user_id: authData.user.id
@@ -301,7 +300,7 @@ export function EmployeeList({ restaurant }: EmployeeListProps) {
           >
             <div>
               <div className="font-medium text-gray-800">{employee.name}</div>
-              <div className="text-sm text-gray-500">@{employee.username}</div>
+              <div className="text-sm text-gray-500">@{employee.phone}</div>
               {employee.roles && employee.roles.length > 0 && (
                 <div className="flex gap-1 mt-1">
                   {employee.roles.map(role => (
