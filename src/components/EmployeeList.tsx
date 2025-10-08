@@ -81,10 +81,14 @@ export function EmployeeList({ restaurant }: EmployeeListProps) {
 
     setLoading(true);
 
-    // Ensure email has proper format - if it doesn't contain @, add @app.local
+    // Ensure email has proper format with valid TLD
     let emailForAuth = formData.email.trim();
     if (!emailForAuth.includes('@')) {
-      emailForAuth = `${emailForAuth}@app.local`;
+      emailForAuth = `${emailForAuth}@schedule.app`;
+    } else if (!emailForAuth.match(/\.[a-z]{2,}$/i)) {
+      // If email has @ but no valid TLD, replace the domain
+      const username = emailForAuth.split('@')[0];
+      emailForAuth = `${username}@schedule.app`;
     }
 
     const { data: authData, error: authError } = await supabase.auth.signUp({
