@@ -62,23 +62,40 @@ export function RestaurantSelector({ selectedRestaurant, onSelectRestaurant }: R
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-sm p-6">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
-          <Store className="w-5 h-5" />
-          Restaurants
-        </h2>
+    <div className="bg-white rounded-lg shadow-sm p-4">
+      <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 text-gray-700 font-medium">
+          <Store className="w-4 h-4" />
+          Restaurant:
+        </div>
+
+        <select
+          value={selectedRestaurant?.id || ''}
+          onChange={(e) => {
+            const restaurant = restaurants.find(r => r.id === e.target.value);
+            if (restaurant) onSelectRestaurant(restaurant);
+          }}
+          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        >
+          <option value="">Select a restaurant</option>
+          {restaurants.map((restaurant) => (
+            <option key={restaurant.id} value={restaurant.id}>
+              {restaurant.name}
+            </option>
+          ))}
+        </select>
+
         <button
           onClick={() => setShowAddForm(!showAddForm)}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors whitespace-nowrap"
         >
           <Plus className="w-4 h-4" />
-          Add Restaurant
+          Add
         </button>
       </div>
 
       {showAddForm && (
-        <form onSubmit={handleAddRestaurant} className="mb-4 p-4 bg-gray-50 rounded-lg">
+        <form onSubmit={handleAddRestaurant} className="mt-4 p-4 bg-gray-50 rounded-lg">
           <div className="space-y-3">
             <input
               type="text"
@@ -114,28 +131,6 @@ export function RestaurantSelector({ selectedRestaurant, onSelectRestaurant }: R
           </div>
         </form>
       )}
-
-      <div className="space-y-2">
-        {restaurants.map((restaurant) => (
-          <button
-            key={restaurant.id}
-            onClick={() => onSelectRestaurant(restaurant)}
-            className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${
-              selectedRestaurant?.id === restaurant.id
-                ? 'bg-blue-50 border-2 border-blue-500'
-                : 'bg-gray-50 border-2 border-transparent hover:bg-gray-100'
-            }`}
-          >
-            <div className="font-medium text-gray-800">{restaurant.name}</div>
-            {restaurant.address && (
-              <div className="text-sm text-gray-500 mt-1">{restaurant.address}</div>
-            )}
-          </button>
-        ))}
-        {restaurants.length === 0 && !showAddForm && (
-          <p className="text-gray-500 text-center py-4">No restaurants yet. Add your first one!</p>
-        )}
-      </div>
     </div>
   );
 }
