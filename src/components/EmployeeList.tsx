@@ -82,31 +82,8 @@ export function EmployeeList({ restaurant }: EmployeeListProps) {
 
     setLoading(true);
 
-    // Generate email from username
-    const emailForAuth = `${formData.username.trim()}@schedule.app`;
-
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-      email: emailForAuth,
-      password: formData.password,
-      options: {
-        emailRedirectTo: undefined,
-        data: {
-          name: formData.name,
-        },
-      },
-    });
-
-    if (authError) {
-      alert(`Error creating account: ${authError.message}`);
-      setLoading(false);
-      return;
-    }
-
-    if (!authData.user) {
-      alert('Failed to create user account');
-      setLoading(false);
-      return;
-    }
+    // Simple hash - in production use bcrypt
+    const passwordHash = btoa(formData.password);
 
     const { data: newEmployee, error: employeeError } = await supabase
       .from('employees')
@@ -114,9 +91,8 @@ export function EmployeeList({ restaurant }: EmployeeListProps) {
         name: formData.name,
         username: formData.username,
         phone: formData.phone || '',
-        email: emailForAuth,
-        roles: formData.roles,
-        auth_user_id: authData.user.id
+        password_hash: passwordHash,
+        roles: formData.roles
       }])
       .select()
       .single();

@@ -1,9 +1,8 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from './supabase';
-import type { User } from '@supabase/supabase-js';
 
 interface AuthContextType {
-  user: User | null;
+  user: { id: string; username: string } | null;
   isAdmin: boolean;
   employeeId: string | null;
   loading: boolean;
@@ -17,37 +16,32 @@ const AuthContext = createContext<AuthContextType>({
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<{ id: string; username: string } | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [employeeId, setEmployeeId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      (async () => {
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          await checkUserRole(session.user.id);
-        }
-        setLoading(false);
-      })();
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      (async () => {
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          await checkUserRole(session.user.id);
-        } else {
-          setIsAdmin(false);
-          setEmployeeId(null);
-        }
-        setLoading(false);
-      })();
-    });
-
-    return () => subscription.unsubscribe();
+    checkAuth();
   }, []);
+
+  const checkAuth = async () => {
+    const storedEmployeeId = localStorage.getItem('employee_id');
+    const storedUsername = localStorage.getItem('employee_username');
+
+    if (storedEmployeeId && storedUsername) {
+      setUser({ id: storedEmployeeId, username: storedUsername });
+      await checkUserRole(storedEmployeeId);
+    } else {
+      const { data: { user: supabaseUser } } = await supabase.auth.getUser();
+      if (supabaseUser) {
+        setUser({ id: supabaseUser.id, username: supabaseUser.email || '' });
+        await checkUserRole(supabaseUser.id);
+      }
+    }
+
+    setLoading(false);
+  };
 
   const checkUserRole = async (userId: string) => {
     const { data: adminData } = await supabase
@@ -62,19 +56,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const { data: employeeData } = await supabase
-      .from('employees')
-      .select('id')
-      .eq('auth_user_id', userId)
-      .maybeSingle();
-
-    if (employeeData) {
-      setIsAdmin(false);
-      setEmployeeId(employeeData.id);
-    } else {
-      setIsAdmin(false);
-      setEmployeeId(null);
-    }
+    setIsAdmin(false);
+    setEmployeeId(userId);
   };
 
   return (

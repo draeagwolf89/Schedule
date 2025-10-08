@@ -24,7 +24,8 @@ export type Database = {
           name: string;
           username: string;
           phone: string;
-          email: string;
+          email: string | null;
+          password_hash: string | null;
           auth_user_id: string | null;
           roles: ('door' | 'gelato' | 'server')[];
           created_at: string;
@@ -33,8 +34,9 @@ export type Database = {
           id?: string;
           name: string;
           username: string;
-          phone: string;
-          email: string;
+          phone?: string;
+          email?: string | null;
+          password_hash?: string | null;
           auth_user_id?: string | null;
           roles: ('door' | 'gelato' | 'server')[];
           created_at?: string;
@@ -44,7 +46,8 @@ export type Database = {
           name?: string;
           username?: string;
           phone?: string;
-          email?: string;
+          email?: string | null;
+          password_hash?: string | null;
           auth_user_id?: string | null;
           roles?: ('door' | 'gelato' | 'server')[];
           created_at?: string;

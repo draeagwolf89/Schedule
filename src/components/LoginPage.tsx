@@ -13,21 +13,31 @@ export function LoginPage() {
     setError('');
     setLoading(true);
 
-    // Convert username to email format for authentication
-    const email = `${username.trim()}@schedule.app`;
+    const { data: employee, error: lookupError } = await supabase
+      .from('employees')
+      .select('*')
+      .eq('username', username.trim())
+      .maybeSingle();
 
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
-    if (signInError) {
-      setError(signInError.message);
+    if (lookupError || !employee) {
+      setError('Invalid username or password');
       setLoading(false);
       return;
     }
 
-    setLoading(false);
+    const passwordHash = btoa(password);
+    if (employee.password_hash !== passwordHash) {
+      setError('Invalid username or password');
+      setLoading(false);
+      return;
+    }
+
+    // Store session in localStorage
+    localStorage.setItem('employee_id', employee.id);
+    localStorage.setItem('employee_username', employee.username);
+
+    // Trigger auth state change
+    window.location.reload();
   };
 
   return (

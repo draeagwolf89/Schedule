@@ -17,7 +17,10 @@ function AppContent() {
   const [activeTab, setActiveTab] = useState<TabType>('schedule');
 
   const handleLogout = async () => {
+    localStorage.removeItem('employee_id');
+    localStorage.removeItem('employee_username');
     await supabase.auth.signOut();
+    window.location.reload();
   };
 
   if (loading) {
