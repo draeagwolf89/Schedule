@@ -21,7 +21,6 @@ export function EmployeeList({ restaurant }: EmployeeListProps) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
-    email: '',
     password: '',
     roles: [] as Role[],
     selectedRestaurants: [restaurant.id] as string[]
@@ -81,10 +80,16 @@ export function EmployeeList({ restaurant }: EmployeeListProps) {
 
     setLoading(true);
 
+    // Generate a unique email from the name
+    const emailUsername = formData.name.toLowerCase().replace(/\s+/g, '-');
+    const timestamp = Date.now();
+    const generatedEmail = `${emailUsername}-${timestamp}@employee.local`;
+
     const { data: authData, error: authError } = await supabase.auth.signUp({
-      email: formData.email,
+      email: generatedEmail,
       password: formData.password,
       options: {
+        emailRedirectTo: undefined,
         data: {
           name: formData.name,
         },
@@ -107,7 +112,7 @@ export function EmployeeList({ restaurant }: EmployeeListProps) {
       .from('employees')
       .insert([{
         name: formData.name,
-        email: formData.email,
+        email: generatedEmail,
         roles: formData.roles,
         auth_user_id: authData.user.id
       }])
@@ -139,7 +144,7 @@ export function EmployeeList({ restaurant }: EmployeeListProps) {
     if (formData.selectedRestaurants.includes(restaurant.id)) {
       setEmployees([...employees, newEmployee]);
     }
-    setFormData({ name: '', email: '', password: '', roles: [], selectedRestaurants: [restaurant.id] });
+    setFormData({ name: '', password: '', roles: [], selectedRestaurants: [restaurant.id] });
     setShowAddForm(false);
   };
 
@@ -202,14 +207,6 @@ export function EmployeeList({ restaurant }: EmployeeListProps) {
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               placeholder="Employee name"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-              required
-            />
-            <input
-              type="email"
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              placeholder="Email"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
               required
             />
@@ -295,9 +292,6 @@ export function EmployeeList({ restaurant }: EmployeeListProps) {
           >
             <div>
               <div className="font-medium text-gray-800">{employee.name}</div>
-              <div className="text-sm text-gray-500">
-                {employee.email}
-              </div>
               {employee.roles && employee.roles.length > 0 && (
                 <div className="flex gap-1 mt-1">
                   {employee.roles.map(role => (
