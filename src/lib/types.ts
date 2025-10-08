@@ -1,59 +1,70 @@
-export interface Database {
+export type Database = {
   public: {
     Tables: {
       restaurants: {
         Row: {
           id: string;
           name: string;
-          address: string;
           created_at: string;
-          updated_at: string;
         };
         Insert: {
           id?: string;
           name: string;
-          address?: string;
           created_at?: string;
-          updated_at?: string;
         };
         Update: {
           id?: string;
           name?: string;
-          address?: string;
           created_at?: string;
-          updated_at?: string;
         };
       };
       employees: {
         Row: {
           id: string;
-          restaurant_id: string;
           name: string;
-          email: string;
+          position: string;
           phone: string;
-          role: string;
+          email: string;
+          auth_user_id: string | null;
           created_at: string;
-          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          position: string;
+          phone: string;
+          email: string;
+          auth_user_id?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          position?: string;
+          phone?: string;
+          email?: string;
+          auth_user_id?: string | null;
+          created_at?: string;
+        };
+      };
+      restaurant_employees: {
+        Row: {
+          id: string;
+          restaurant_id: string;
+          employee_id: string;
+          created_at: string;
         };
         Insert: {
           id?: string;
           restaurant_id: string;
-          name: string;
-          email?: string;
-          phone?: string;
-          role?: string;
+          employee_id: string;
           created_at?: string;
-          updated_at?: string;
         };
         Update: {
           id?: string;
           restaurant_id?: string;
-          name?: string;
-          email?: string;
-          phone?: string;
-          role?: string;
+          employee_id?: string;
           created_at?: string;
-          updated_at?: string;
         };
       };
       shifts: {
@@ -61,43 +72,55 @@ export interface Database {
           id: string;
           restaurant_id: string;
           employee_id: string;
-          shift_date: string;
+          date: string;
           start_time: string;
           end_time: string;
-          notes: string;
-          shift_type: string;
+          shift_type: 'AM' | 'PM';
           created_at: string;
-          updated_at: string;
         };
         Insert: {
           id?: string;
           restaurant_id: string;
           employee_id: string;
-          shift_date: string;
+          date: string;
           start_time: string;
           end_time: string;
-          notes?: string;
-          shift_type?: string;
+          shift_type: 'AM' | 'PM';
           created_at?: string;
-          updated_at?: string;
         };
         Update: {
           id?: string;
           restaurant_id?: string;
           employee_id?: string;
-          shift_date?: string;
+          date?: string;
           start_time?: string;
           end_time?: string;
-          notes?: string;
-          shift_type?: string;
+          shift_type?: 'AM' | 'PM';
           created_at?: string;
-          updated_at?: string;
+        };
+      };
+      admins: {
+        Row: {
+          id: string;
+          user_id: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          created_at?: string;
         };
       };
     };
   };
-}
+};
 
 export type Restaurant = Database['public']['Tables']['restaurants']['Row'];
 export type Employee = Database['public']['Tables']['employees']['Row'];
+export type RestaurantEmployee = Database['public']['Tables']['restaurant_employees']['Row'];
 export type Shift = Database['public']['Tables']['shifts']['Row'];

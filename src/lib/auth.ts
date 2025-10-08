@@ -1,8 +1,16 @@
 import { supabase } from './supabase';
+import type { User } from '@supabase/supabase-js';
 
-export interface AuthUser {
-  id: string;
-  email: string;
+export type AuthUser = User;
+
+export async function signUp(email: string, password: string) {
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+  });
+
+  if (error) throw error;
+  return data;
 }
 
 export async function signIn(email: string, password: string) {
@@ -22,38 +30,29 @@ export async function signOut() {
 
 export async function getCurrentUser(): Promise<AuthUser | null> {
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
-
-  return {
-    id: user.id,
-    email: user.email || '',
-  };
+  return user;
 }
 
 export async function isAdmin(): Promise<boolean> {
   const user = await getCurrentUser();
   if (!user) return false;
 
-  const { data } = await supabase
-    .from('employees')
+  const { data, error } = await supabase
+    .from('admins')
     .select('id')
-    .eq('auth_user_id', user.id)
+    .eq('user_id', user.id)
     .maybeSingle();
 
-  return !data;
+  if (error) {
+    console.error('Error checking admin status:', error);
+    return false;
+  }
+
+  return data !== null;
 }
 
 export function onAuthStateChange(callback: (user: AuthUser | null) => void) {
-  return supabase.auth.onAuthStateChange((event, session) => {
-    (async () => {
-      if (session?.user) {
-        callback({
-          id: session.user.id,
-          email: session.user.email || '',
-        });
-      } else {
-        callback(null);
-      }
-    })();
+  return supabase.auth.onAuthStateChange((_event, session) => {
+    callback(session?.user ?? null);
   });
 }
