@@ -17,18 +17,21 @@ const ROLES: { value: Role; label: string }[] = [
 
 export function EmployeeList({ restaurant }: EmployeeListProps) {
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [allRestaurants, setAllRestaurants] = useState<Restaurant[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     phone: '',
     position: 'server',
-    roles: [] as Role[]
+    roles: [] as Role[],
+    selectedRestaurants: [restaurant.id] as string[]
   });
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     loadEmployees();
+    loadAllRestaurants();
   }, [restaurant.id]);
 
   const loadEmployees = async () => {
@@ -46,10 +49,29 @@ export function EmployeeList({ restaurant }: EmployeeListProps) {
     setEmployees(employeeList as Employee[]);
   };
 
+  const loadAllRestaurants = async () => {
+    const { data, error } = await supabase
+      .from('restaurants')
+      .select('*')
+      .order('name');
+
+    if (error) {
+      console.error('Error loading restaurants:', error);
+      return;
+    }
+
+    setAllRestaurants(data || []);
+  };
+
   const handleAddEmployee = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name.trim() || formData.roles.length === 0) {
       alert('Please provide a name and select at least one role');
+      return;
+    }
+
+    if (formData.selectedRestaurants.length === 0) {
+      alert('Please select at least one restaurant');
       return;
     }
 
@@ -73,22 +95,26 @@ export function EmployeeList({ restaurant }: EmployeeListProps) {
       return;
     }
 
+    const restaurantLinks = formData.selectedRestaurants.map(restaurantId => ({
+      employee_id: newEmployee.id,
+      restaurant_id: restaurantId
+    }));
+
     const { error: linkError } = await supabase
       .from('restaurant_employees')
-      .insert([{
-        employee_id: newEmployee.id,
-        restaurant_id: restaurant.id
-      }]);
+      .insert(restaurantLinks);
 
     setLoading(false);
 
     if (linkError) {
-      console.error('Error linking employee to restaurant:', linkError);
+      console.error('Error linking employee to restaurants:', linkError);
       return;
     }
 
-    setEmployees([...employees, newEmployee]);
-    setFormData({ name: '', email: '', phone: '', position: 'server', roles: [] });
+    if (formData.selectedRestaurants.includes(restaurant.id)) {
+      setEmployees([...employees, newEmployee]);
+    }
+    setFormData({ name: '', email: '', phone: '', position: 'server', roles: [], selectedRestaurants: [restaurant.id] });
     setShowAddForm(false);
   };
 
@@ -115,6 +141,15 @@ export function EmployeeList({ restaurant }: EmployeeListProps) {
       roles: prev.roles.includes(role)
         ? prev.roles.filter(r => r !== role)
         : [...prev.roles, role]
+    }));
+  };
+
+  const toggleRestaurant = (restaurantId: string) => {
+    setFormData(prev => ({
+      ...prev,
+      selectedRestaurants: prev.selectedRestaurants.includes(restaurantId)
+        ? prev.selectedRestaurants.filter(id => id !== restaurantId)
+        : [...prev.selectedRestaurants, restaurantId]
     }));
   };
 
@@ -161,6 +196,28 @@ export function EmployeeList({ restaurant }: EmployeeListProps) {
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
               required
             />
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Restaurants (select all where employee works)
+              </label>
+              <div className="flex flex-wrap gap-2 mb-2">
+                {allRestaurants.map(rest => (
+                  <button
+                    key={rest.id}
+                    type="button"
+                    onClick={() => toggleRestaurant(rest.id)}
+                    className={`px-4 py-2 rounded-lg border transition-colors ${
+                      formData.selectedRestaurants.includes(rest.id)
+                        ? 'bg-blue-600 text-white border-blue-600'
+                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    {rest.name}
+                  </button>
+                ))}
+              </div>
+            </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
