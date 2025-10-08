@@ -22,7 +22,6 @@ export type Database = {
         Row: {
           id: string;
           name: string;
-          position: string;
           phone: string;
           email: string;
           auth_user_id: string | null;
@@ -32,7 +31,6 @@ export type Database = {
         Insert: {
           id?: string;
           name: string;
-          position: string;
           phone: string;
           email: string;
           auth_user_id?: string | null;
@@ -42,7 +40,6 @@ export type Database = {
         Update: {
           id?: string;
           name?: string;
-          position?: string;
           phone?: string;
           email?: string;
           auth_user_id?: string | null;

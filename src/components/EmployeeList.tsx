@@ -24,7 +24,6 @@ export function EmployeeList({ restaurant }: EmployeeListProps) {
     email: '',
     phone: '',
     password: '',
-    position: 'server',
     roles: [] as Role[],
     selectedRestaurants: [restaurant.id] as string[]
   });
@@ -111,7 +110,6 @@ export function EmployeeList({ restaurant }: EmployeeListProps) {
         name: formData.name,
         email: formData.email,
         phone: formData.phone,
-        position: formData.position,
         roles: formData.roles,
         auth_user_id: authData.user.id
       }])
@@ -143,7 +141,7 @@ export function EmployeeList({ restaurant }: EmployeeListProps) {
     if (formData.selectedRestaurants.includes(restaurant.id)) {
       setEmployees([...employees, newEmployee]);
     }
-    setFormData({ name: '', email: '', phone: '', password: '', position: 'server', roles: [], selectedRestaurants: [restaurant.id] });
+    setFormData({ name: '', email: '', phone: '', password: '', roles: [], selectedRestaurants: [restaurant.id] });
     setShowAddForm(false);
   };
 
@@ -308,8 +306,7 @@ export function EmployeeList({ restaurant }: EmployeeListProps) {
             <div>
               <div className="font-medium text-gray-800">{employee.name}</div>
               <div className="text-sm text-gray-500">
-                {employee.position}
-                {employee.email && ` • ${employee.email}`}
+                {employee.email}
                 {employee.phone && ` • ${employee.phone}`}
               </div>
               {employee.roles && employee.roles.length > 0 && (
