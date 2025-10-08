@@ -116,6 +116,19 @@ export function ScheduleManager({ restaurant }: ScheduleManagerProps) {
       return;
     }
 
+    const { data: existingShift } = await supabase
+      .from('shifts')
+      .select('*, restaurant:restaurants(name)')
+      .eq('employee_id', formData.employee_id)
+      .eq('date', formData.date)
+      .maybeSingle();
+
+    if (existingShift) {
+      const restaurantName = (existingShift as any).restaurant?.name || 'another restaurant';
+      alert(`${selectedEmployee?.name} is already scheduled at ${restaurantName} on this day. Employees can only work one shift per day across all restaurants.`);
+      return;
+    }
+
     setLoading(true);
     const { data, error } = await supabase
       .from('shifts')
@@ -127,7 +140,7 @@ export function ScheduleManager({ restaurant }: ScheduleManagerProps) {
 
     if (error) {
       if (error.code === '23505') {
-        alert('This employee already has a shift on this day. Each employee can only have one role per day.');
+        alert('This employee already has a shift on this day. Employees can only work one shift per day across all restaurants.');
       } else {
         console.error('Error adding shift:', error);
         alert('Error adding shift. Please try again.');
