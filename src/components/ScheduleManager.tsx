@@ -1,50 +1,28 @@
 import { useEffect, useState } from 'react';
 import { Calendar, Trash2, ChevronLeft, ChevronRight, X } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { storage } from '../lib/storage';
 import type { Employee, Restaurant, Shift } from '../lib/types';
 
 interface ScheduleManagerProps {
   restaurant: Restaurant;
 }
 
-interface ShiftWithEmployee extends Shift {
-  employee: Employee;
-}
-
-interface ConflictingShift extends ShiftWithEmployee {
-  restaurant: Restaurant;
-}
-
 export function ScheduleManager({ restaurant }: ScheduleManagerProps) {
-  const [shifts, setShifts] = useState<ShiftWithEmployee[]>([]);
+  const [shifts, setShifts] = useState<Shift[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [selectedDate, setSelectedDate] = useState<string>('');
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [formData, setFormData] = useState({
-    employee_id: '',
-    shift_date: '',
-    start_time: '09:00',
-    end_time: '17:00',
-    notes: '',
-    shift_type: 'SERVER'
+    employeeId: '',
+    date: '',
+    startTime: '09:00',
+    endTime: '17:00',
+    shiftType: 'AM' as 'AM' | 'PM'
   });
   const [loading, setLoading] = useState(false);
-  const [conflictingShifts, setConflictingShifts] = useState<ConflictingShift[]>([]);
 
   useEffect(() => {
     loadEmployees();
-  }, [restaurant.id]);
-
-  useEffect(() => {
-    if (formData.employee_id && formData.shift_date && formData.shift_type) {
-      checkConflicts();
-    } else {
-      setConflictingShifts([]);
-    }
-  }, [formData.employee_id, formData.shift_date, formData.shift_type]);
-
-  useEffect(() => {
     loadShifts();
   }, [restaurant.id, currentMonth]);
 
@@ -70,134 +48,55 @@ export function ScheduleManager({ restaurant }: ScheduleManagerProps) {
 
     while (current <= endDate) {
       dates.push(new Date(current));
-      current.setDate(current.getDate() + 1);
+      current.setDate(current.setDate(current.getDate() + 1));
     }
 
     return dates;
   }
 
-  const loadEmployees = async () => {
-    const { data, error } = await supabase
-      .from('employee_restaurants')
-      .select('employee:employees(*)')
-      .eq('restaurant_id', restaurant.id);
-
-    if (error) {
-      console.error('Error loading employees:', error);
-      return;
-    }
-
-    const employeeList = data?.map(er => er.employee).filter(Boolean) || [];
-    setEmployees(employeeList as Employee[]);
-    if (employeeList && employeeList.length > 0 && !formData.employee_id) {
-      setFormData(prev => ({ ...prev, employee_id: employeeList[0].id }));
+  const loadEmployees = () => {
+    const data = storage.employees.getByRestaurant(restaurant.id);
+    setEmployees(data);
+    if (data.length > 0 && !formData.employeeId) {
+      setFormData(prev => ({ ...prev, employeeId: data[0].id }));
     }
   };
 
-  const loadShifts = async () => {
-    const year = currentMonth.getFullYear();
-    const month = currentMonth.getMonth();
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-
-    const startDate = new Date(firstDay);
-    startDate.setDate(startDate.getDate() - firstDay.getDay());
-
-    const endDate = new Date(lastDay);
-    endDate.setDate(endDate.getDate() + (6 - lastDay.getDay()));
-
-    const { data, error } = await supabase
-      .from('shifts')
-      .select('*, employee:employees(*)')
-      .eq('restaurant_id', restaurant.id)
-      .gte('shift_date', formatDate(startDate))
-      .lte('shift_date', formatDate(endDate))
-      .order('shift_date')
-      .order('start_time');
-
-    if (error) {
-      console.error('Error loading shifts:', error);
-      return;
-    }
-
-    setShifts(data as ShiftWithEmployee[] || []);
+  const loadShifts = () => {
+    const data = storage.shifts.getByRestaurant(restaurant.id);
+    setShifts(data);
   };
 
-  const checkConflicts = async () => {
-    if (!formData.employee_id || !formData.shift_date) return;
-
-    const { data, error } = await supabase
-      .from('shifts')
-      .select('*, employee:employees(*), restaurant:restaurants(*)')
-      .eq('employee_id', formData.employee_id)
-      .eq('shift_date', formData.shift_date);
-
-    if (error) {
-      console.error('Error checking conflicts:', error);
-      return;
-    }
-
-    const conflicts = (data as ConflictingShift[] || []).filter(shift => {
-      if (shift.restaurant_id === restaurant.id && shift.shift_type !== formData.shift_type) {
-        return true;
-      }
-      if (shift.restaurant_id !== restaurant.id) {
-        return true;
-      }
-      return false;
-    });
-
-    setConflictingShifts(conflicts);
-  };
-
-  const handleAddShift = async (e: React.FormEvent) => {
+  const handleAddShift = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.employee_id || !formData.shift_date) return;
-    if (conflictingShifts.length > 0) return;
+    if (!formData.employeeId || !formData.date) return;
 
     setLoading(true);
-    const { data, error } = await supabase
-      .from('shifts')
-      .insert([{ ...formData, restaurant_id: restaurant.id }])
-      .select('*, employee:employees(*)')
-      .single();
-
+    const newShift = storage.shifts.create({
+      restaurantId: restaurant.id,
+      employeeId: formData.employeeId,
+      date: formData.date,
+      startTime: formData.startTime,
+      endTime: formData.endTime,
+      shiftType: formData.shiftType
+    });
     setLoading(false);
 
-    if (error) {
-      console.error('Error adding shift:', error);
-      return;
-    }
-
-    if (data) {
-      setShifts([...shifts, data as ShiftWithEmployee]);
-    }
-
+    setShifts([...shifts, newShift]);
     setFormData({
-      employee_id: employees[0]?.id || '',
-      shift_date: '',
-      start_time: '09:00',
-      end_time: '17:00',
-      notes: '',
-      shift_type: 'SERVER'
+      employeeId: employees[0]?.id || '',
+      date: '',
+      startTime: '09:00',
+      endTime: '17:00',
+      shiftType: 'AM'
     });
     setShowAddForm(false);
-    setSelectedDate('');
   };
 
-  const handleDeleteShift = async (id: string) => {
+  const handleDeleteShift = (id: string) => {
     if (!confirm('Are you sure you want to delete this shift?')) return;
 
-    const { error } = await supabase
-      .from('shifts')
-      .delete()
-      .eq('id', id);
-
-    if (error) {
-      console.error('Error deleting shift:', error);
-      return;
-    }
-
+    storage.shifts.delete(id);
     setShifts(shifts.filter(shift => shift.id !== id));
   };
 
@@ -216,11 +115,10 @@ export function ScheduleManager({ restaurant }: ScheduleManagerProps) {
   const handleDateClick = (date: Date) => {
     if (employees.length === 0) return;
     const dateStr = formatDate(date);
-    setSelectedDate(dateStr);
     setFormData({
       ...formData,
-      shift_date: dateStr,
-      employee_id: employees[0]?.id || formData.employee_id
+      date: dateStr,
+      employeeId: employees[0]?.id || formData.employeeId
     });
     setShowAddForm(true);
   };
@@ -243,10 +141,7 @@ export function ScheduleManager({ restaurant }: ScheduleManagerProps) {
           <form onSubmit={handleAddShift} className="bg-white rounded-lg p-6 max-w-md w-full relative">
             <button
               type="button"
-              onClick={() => {
-                setShowAddForm(false);
-                setSelectedDate('');
-              }}
+              onClick={() => setShowAddForm(false)}
               className="absolute top-4 right-4 p-1 hover:bg-gray-100 rounded-lg transition-colors"
             >
               <X className="w-5 h-5" />
@@ -256,14 +151,14 @@ export function ScheduleManager({ restaurant }: ScheduleManagerProps) {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Employee</label>
                 <select
-                  value={formData.employee_id}
-                  onChange={(e) => setFormData({ ...formData, employee_id: e.target.value })}
+                  value={formData.employeeId}
+                  onChange={(e) => setFormData({ ...formData, employeeId: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                   required
                 >
                   {employees.map((emp) => (
                     <option key={emp.id} value={emp.id}>
-                      {emp.name} ({emp.role})
+                      {emp.name} ({emp.position})
                     </option>
                   ))}
                 </select>
@@ -272,71 +167,58 @@ export function ScheduleManager({ restaurant }: ScheduleManagerProps) {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
                 <input
                   type="date"
-                  value={formData.shift_date}
-                  onChange={(e) => setFormData({ ...formData, shift_date: e.target.value })}
+                  value={formData.date}
+                  onChange={(e) => setFormData({ ...formData, date: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                   required
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Station</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Shift Type</label>
                 <select
-                  value={formData.shift_type}
-                  onChange={(e) => setFormData({ ...formData, shift_type: e.target.value })}
+                  value={formData.shiftType}
+                  onChange={(e) => setFormData({ ...formData, shiftType: e.target.value as 'AM' | 'PM' })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                   required
                 >
-                  <option value="SERVER">Server</option>
-                  <option value="DOOR">Door</option>
-                  {restaurant.name === 'Locanda Vini e Olii' && (
-                    <option value="GELATO">Gelato</option>
-                  )}
+                  <option value="AM">AM</option>
+                  <option value="PM">PM</option>
                 </select>
               </div>
-
-              {conflictingShifts.length > 0 && (
-                <div className="bg-yellow-50 border-l-4 border-yellow-400 p-3 rounded">
-                  <div className="flex items-start gap-2">
-                    <svg className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                    </svg>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-yellow-800">Scheduling Conflict</p>
-                      <p className="text-sm text-yellow-700 mt-1">
-                        This employee is already scheduled:
-                      </p>
-                      <ul className="mt-2 space-y-1">
-                        {conflictingShifts.map((conflict) => {
-                          const isSameRestaurant = conflict.restaurant_id === restaurant.id;
-                          return (
-                            <li key={conflict.id} className="text-sm text-yellow-800 font-medium">
-                              • {isSameRestaurant ? 'Same location' : conflict.restaurant.name} as {conflict.shift_type}
-                            </li>
-                          );
-                        })}
-                      </ul>
-                      <p className="text-xs text-red-700 mt-2 font-semibold">
-                        Cannot proceed - resolve conflicts first.
-                      </p>
-                    </div>
-                  </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Start Time</label>
+                  <input
+                    type="time"
+                    value={formData.startTime}
+                    onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    required
+                  />
                 </div>
-              )}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">End Time</label>
+                  <input
+                    type="time"
+                    value={formData.endTime}
+                    onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    required
+                  />
+                </div>
+              </div>
             </div>
             <div className="flex gap-2 mt-6">
               <button
                 type="submit"
-                disabled={loading || conflictingShifts.length > 0}
+                disabled={loading}
                 className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {loading ? 'Adding...' : 'Add Shift'}
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  setShowAddForm(false);
-                  setSelectedDate('');
-                }}
+                onClick={() => setShowAddForm(false)}
                 className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
               >
                 Cancel
@@ -391,7 +273,7 @@ export function ScheduleManager({ restaurant }: ScheduleManagerProps) {
 
             {monthDates.map((date) => {
               const dateStr = formatDate(date);
-              const dayShifts = shifts.filter(shift => shift.shift_date === dateStr);
+              const dayShifts = shifts.filter(shift => shift.date === dateStr);
               const isToday = formatDate(new Date()) === dateStr;
               const isCurrentMonth = date.getMonth() === currentMonthNumber;
 
@@ -400,7 +282,7 @@ export function ScheduleManager({ restaurant }: ScheduleManagerProps) {
                   key={dateStr}
                   onClick={() => handleDateClick(date)}
                   className={`
-                    border rounded-lg overflow-hidden min-h-[140px] cursor-pointer transition-all flex flex-col
+                    border rounded-lg overflow-hidden min-h-[120px] cursor-pointer transition-all flex flex-col
                     ${isCurrentMonth ? 'bg-white hover:bg-blue-50 hover:border-blue-300' : 'bg-gray-50 opacity-50'}
                     ${isToday ? 'border-2 border-blue-500' : 'border-gray-200'}
                   `}
@@ -410,97 +292,32 @@ export function ScheduleManager({ restaurant }: ScheduleManagerProps) {
                   }`}>
                     {date.getDate()}
                   </div>
-                  <div className="p-1 flex-1 overflow-y-auto">
-                    {(() => {
-                      const serverShifts = dayShifts.filter(s => s.shift_type === 'SERVER');
-                      const doorShifts = dayShifts.filter(s => s.shift_type === 'DOOR');
-                      const gelatoShifts = dayShifts.filter(s => s.shift_type === 'GELATO');
-
+                  <div className="p-1 flex-1 overflow-y-auto space-y-1">
+                    {dayShifts.map((shift) => {
+                      const employee = employees.find(e => e.id === shift.employeeId);
                       return (
-                        <div className="space-y-2">
-                          {serverShifts.length > 0 && (
-                            <div>
-                              <div className="text-[9px] font-semibold text-blue-700 uppercase mb-0.5">Servers</div>
-                              <div className="flex flex-wrap gap-1">
-                                {serverShifts.map((shift) => (
-                                  <div
-                                    key={shift.id}
-                                    onClick={(e) => e.stopPropagation()}
-                                    className="bg-blue-50 border border-blue-200 rounded px-1.5 py-0.5 text-[10px] relative group inline-block"
-                                  >
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleDeleteShift(shift.id);
-                                      }}
-                                      className="absolute -top-1 -right-1 p-0.5 bg-white text-red-600 hover:bg-red-100 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
-                                      title="Delete shift"
-                                    >
-                                      <Trash2 className="w-2.5 h-2.5" />
-                                    </button>
-                                    <div className="font-medium text-gray-800">{shift.employee.name}</div>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-
-                          {doorShifts.length > 0 && (
-                            <div>
-                              <div className="text-[9px] font-semibold text-green-700 uppercase mb-0.5">Door</div>
-                              <div className="flex flex-wrap gap-1">
-                                {doorShifts.map((shift) => (
-                                  <div
-                                    key={shift.id}
-                                    onClick={(e) => e.stopPropagation()}
-                                    className="bg-green-50 border border-green-200 rounded px-1.5 py-0.5 text-[10px] relative group inline-block"
-                                  >
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleDeleteShift(shift.id);
-                                      }}
-                                      className="absolute -top-1 -right-1 p-0.5 bg-white text-red-600 hover:bg-red-100 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
-                                      title="Delete shift"
-                                    >
-                                      <Trash2 className="w-2.5 h-2.5" />
-                                    </button>
-                                    <div className="font-medium text-gray-800">{shift.employee.name}</div>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-
-                          {gelatoShifts.length > 0 && (
-                            <div>
-                              <div className="text-[9px] font-semibold text-purple-700 uppercase mb-0.5">Gelato</div>
-                              <div className="flex flex-wrap gap-1">
-                                {gelatoShifts.map((shift) => (
-                                  <div
-                                    key={shift.id}
-                                    onClick={(e) => e.stopPropagation()}
-                                    className="bg-purple-50 border border-purple-200 rounded px-1.5 py-0.5 text-[10px] relative group inline-block"
-                                  >
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleDeleteShift(shift.id);
-                                      }}
-                                      className="absolute -top-1 -right-1 p-0.5 bg-white text-red-600 hover:bg-red-100 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
-                                      title="Delete shift"
-                                    >
-                                      <Trash2 className="w-2.5 h-2.5" />
-                                    </button>
-                                    <div className="font-medium text-gray-800">{shift.employee.name}</div>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
+                        <div
+                          key={shift.id}
+                          onClick={(e) => e.stopPropagation()}
+                          className={`${
+                            shift.shiftType === 'AM' ? 'bg-blue-50 border-blue-200' : 'bg-orange-50 border-orange-200'
+                          } border rounded px-1.5 py-0.5 text-[10px] relative group`}
+                        >
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteShift(shift.id);
+                            }}
+                            className="absolute -top-1 -right-1 p-0.5 bg-white text-red-600 hover:bg-red-100 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+                            title="Delete shift"
+                          >
+                            <Trash2 className="w-2.5 h-2.5" />
+                          </button>
+                          <div className="font-medium text-gray-800">{employee?.name}</div>
+                          <div className="text-gray-600">{shift.shiftType}</div>
                         </div>
                       );
-                    })()}
+                    })}
                   </div>
                 </div>
               );
