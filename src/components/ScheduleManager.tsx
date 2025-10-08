@@ -153,6 +153,7 @@ export function ScheduleManager({ restaurant }: ScheduleManagerProps) {
   const handleAddShift = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.employee_id || !formData.shift_date) return;
+    if (conflictingShifts.length > 0) return;
 
     setLoading(true);
     const { data, error } = await supabase
@@ -314,8 +315,8 @@ export function ScheduleManager({ restaurant }: ScheduleManagerProps) {
                           );
                         })}
                       </ul>
-                      <p className="text-xs text-yellow-600 mt-2">
-                        You can still proceed, but be aware of the conflict.
+                      <p className="text-xs text-red-700 mt-2 font-semibold">
+                        Cannot proceed - resolve conflicts first.
                       </p>
                     </div>
                   </div>
@@ -325,8 +326,8 @@ export function ScheduleManager({ restaurant }: ScheduleManagerProps) {
             <div className="flex gap-2 mt-6">
               <button
                 type="submit"
-                disabled={loading}
-                className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 transition-colors"
+                disabled={loading || conflictingShifts.length > 0}
+                className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {loading ? 'Adding...' : 'Add Shift'}
               </button>
