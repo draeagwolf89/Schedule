@@ -341,44 +341,96 @@ export function ScheduleManager({ restaurant }: ScheduleManagerProps) {
                     {date.getDate()}
                   </div>
                   <div className="p-1 flex-1 overflow-y-auto">
-                    <div className="flex flex-wrap gap-1">
-                      {dayShifts.map((shift) => {
-                        const shiftTypeColors = {
-                          SERVER: 'bg-blue-50 border-blue-200',
-                          DOOR: 'bg-green-50 border-green-200',
-                          GELATO: 'bg-purple-50 border-purple-200'
-                        };
-                        const shiftTypeBadges = {
-                          SERVER: '',
-                          DOOR: 'D',
-                          GELATO: 'G'
-                        };
-                        return (
-                          <div
-                            key={shift.id}
-                            onClick={(e) => e.stopPropagation()}
-                            className={`${shiftTypeColors[shift.shift_type as keyof typeof shiftTypeColors] || 'bg-orange-50 border-orange-200'} border rounded px-1.5 py-0.5 text-[10px] relative group inline-block`}
-                          >
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteShift(shift.id);
-                              }}
-                              className="absolute -top-1 -right-1 p-0.5 bg-white text-red-600 hover:bg-red-100 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
-                              title="Delete shift"
-                            >
-                              <Trash2 className="w-2.5 h-2.5" />
-                            </button>
-                            <div className="font-medium text-gray-800 flex items-center gap-1">
-                              {shiftTypeBadges[shift.shift_type as keyof typeof shiftTypeBadges] && (
-                                <span className="font-bold">[{shiftTypeBadges[shift.shift_type as keyof typeof shiftTypeBadges]}]</span>
-                              )}
-                              {shift.employee.name}
+                    {(() => {
+                      const serverShifts = dayShifts.filter(s => s.shift_type === 'SERVER');
+                      const doorShifts = dayShifts.filter(s => s.shift_type === 'DOOR');
+                      const gelatoShifts = dayShifts.filter(s => s.shift_type === 'GELATO');
+
+                      return (
+                        <div className="space-y-2">
+                          {serverShifts.length > 0 && (
+                            <div>
+                              <div className="text-[9px] font-semibold text-blue-700 uppercase mb-0.5">Servers</div>
+                              <div className="flex flex-wrap gap-1">
+                                {serverShifts.map((shift) => (
+                                  <div
+                                    key={shift.id}
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="bg-blue-50 border border-blue-200 rounded px-1.5 py-0.5 text-[10px] relative group inline-block"
+                                  >
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDeleteShift(shift.id);
+                                      }}
+                                      className="absolute -top-1 -right-1 p-0.5 bg-white text-red-600 hover:bg-red-100 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+                                      title="Delete shift"
+                                    >
+                                      <Trash2 className="w-2.5 h-2.5" />
+                                    </button>
+                                    <div className="font-medium text-gray-800">{shift.employee.name}</div>
+                                  </div>
+                                ))}
+                              </div>
                             </div>
-                          </div>
-                        );
-                      })}
-                    </div>
+                          )}
+
+                          {doorShifts.length > 0 && (
+                            <div>
+                              <div className="text-[9px] font-semibold text-green-700 uppercase mb-0.5">Door</div>
+                              <div className="flex flex-wrap gap-1">
+                                {doorShifts.map((shift) => (
+                                  <div
+                                    key={shift.id}
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="bg-green-50 border border-green-200 rounded px-1.5 py-0.5 text-[10px] relative group inline-block"
+                                  >
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDeleteShift(shift.id);
+                                      }}
+                                      className="absolute -top-1 -right-1 p-0.5 bg-white text-red-600 hover:bg-red-100 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+                                      title="Delete shift"
+                                    >
+                                      <Trash2 className="w-2.5 h-2.5" />
+                                    </button>
+                                    <div className="font-medium text-gray-800">{shift.employee.name}</div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {gelatoShifts.length > 0 && (
+                            <div>
+                              <div className="text-[9px] font-semibold text-purple-700 uppercase mb-0.5">Gelato</div>
+                              <div className="flex flex-wrap gap-1">
+                                {gelatoShifts.map((shift) => (
+                                  <div
+                                    key={shift.id}
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="bg-purple-50 border border-purple-200 rounded px-1.5 py-0.5 text-[10px] relative group inline-block"
+                                  >
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDeleteShift(shift.id);
+                                      }}
+                                      className="absolute -top-1 -right-1 p-0.5 bg-white text-red-600 hover:bg-red-100 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+                                      title="Delete shift"
+                                    >
+                                      <Trash2 className="w-2.5 h-2.5" />
+                                    </button>
+                                    <div className="font-medium text-gray-800">{shift.employee.name}</div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
               );
