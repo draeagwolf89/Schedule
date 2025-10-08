@@ -22,7 +22,8 @@ export function ScheduleManager({ restaurant }: ScheduleManagerProps) {
     shift_date: '',
     start_time: '09:00',
     end_time: '17:00',
-    notes: ''
+    notes: '',
+    shift_type: 'SERVER'
   });
   const [loading, setLoading] = useState(false);
 
@@ -136,7 +137,8 @@ export function ScheduleManager({ restaurant }: ScheduleManagerProps) {
       shift_date: '',
       start_time: '09:00',
       end_time: '17:00',
-      notes: ''
+      notes: '',
+      shift_type: 'SERVER'
     });
     setShowAddForm(false);
     setSelectedDate('');
@@ -235,6 +237,21 @@ export function ScheduleManager({ restaurant }: ScheduleManagerProps) {
                   required
                 />
               </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Station</label>
+                <select
+                  value={formData.shift_type}
+                  onChange={(e) => setFormData({ ...formData, shift_type: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  required
+                >
+                  <option value="SERVER">Server</option>
+                  <option value="DOOR">Door</option>
+                  {restaurant.name === 'Locanda Vini e Olii' && (
+                    <option value="GELATO">Gelato</option>
+                  )}
+                </select>
+              </div>
             </div>
             <div className="flex gap-2 mt-6">
               <button
@@ -325,25 +342,42 @@ export function ScheduleManager({ restaurant }: ScheduleManagerProps) {
                   </div>
                   <div className="p-1 flex-1 overflow-y-auto">
                     <div className="flex flex-wrap gap-1">
-                      {dayShifts.map((shift) => (
-                        <div
-                          key={shift.id}
-                          onClick={(e) => e.stopPropagation()}
-                          className="bg-orange-50 border border-orange-200 rounded px-1.5 py-0.5 text-[10px] relative group inline-block"
-                        >
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeleteShift(shift.id);
-                            }}
-                            className="absolute -top-1 -right-1 p-0.5 bg-white text-red-600 hover:bg-red-100 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
-                            title="Delete shift"
+                      {dayShifts.map((shift) => {
+                        const shiftTypeColors = {
+                          SERVER: 'bg-blue-50 border-blue-200',
+                          DOOR: 'bg-green-50 border-green-200',
+                          GELATO: 'bg-purple-50 border-purple-200'
+                        };
+                        const shiftTypeBadges = {
+                          SERVER: '',
+                          DOOR: 'D',
+                          GELATO: 'G'
+                        };
+                        return (
+                          <div
+                            key={shift.id}
+                            onClick={(e) => e.stopPropagation()}
+                            className={`${shiftTypeColors[shift.shift_type as keyof typeof shiftTypeColors] || 'bg-orange-50 border-orange-200'} border rounded px-1.5 py-0.5 text-[10px] relative group inline-block`}
                           >
-                            <Trash2 className="w-2.5 h-2.5" />
-                          </button>
-                          <div className="font-medium text-gray-800">{shift.employee.name}</div>
-                        </div>
-                      ))}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteShift(shift.id);
+                              }}
+                              className="absolute -top-1 -right-1 p-0.5 bg-white text-red-600 hover:bg-red-100 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+                              title="Delete shift"
+                            >
+                              <Trash2 className="w-2.5 h-2.5" />
+                            </button>
+                            <div className="font-medium text-gray-800 flex items-center gap-1">
+                              {shiftTypeBadges[shift.shift_type as keyof typeof shiftTypeBadges] && (
+                                <span className="font-bold">[{shiftTypeBadges[shift.shift_type as keyof typeof shiftTypeBadges]}]</span>
+                              )}
+                              {shift.employee.name}
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 </div>

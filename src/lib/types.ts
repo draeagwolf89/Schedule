@@ -65,6 +65,7 @@ export interface Database {
           start_time: string;
           end_time: string;
           notes: string;
+          shift_type: string;
           created_at: string;
           updated_at: string;
         };
@@ -76,6 +77,7 @@ export interface Database {
           start_time: string;
           end_time: string;
           notes?: string;
+          shift_type?: string;
           created_at?: string;
           updated_at?: string;
         };
@@ -87,6 +89,7 @@ export interface Database {
           start_time?: string;
           end_time?: string;
           notes?: string;
+          shift_type?: string;
           created_at?: string;
           updated_at?: string;
         };
