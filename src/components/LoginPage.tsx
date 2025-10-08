@@ -1,12 +1,8 @@
 import { useState } from 'react';
 import { LogIn } from 'lucide-react';
-import { signIn } from '../lib/auth';
+import { supabase } from '../lib/supabase';
 
-interface LoginPageProps {
-  onLogin: () => void;
-}
-
-export function LoginPage({ onLogin }: LoginPageProps) {
+export function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -17,14 +13,18 @@ export function LoginPage({ onLogin }: LoginPageProps) {
     setError('');
     setLoading(true);
 
-    try {
-      await signIn(email, password);
-      onLogin();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to sign in');
-    } finally {
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (signInError) {
+      setError(signInError.message);
       setLoading(false);
+      return;
     }
+
+    setLoading(false);
   };
 
   return (
