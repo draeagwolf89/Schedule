@@ -22,6 +22,7 @@ export function EmployeeList({ restaurant }: EmployeeListProps) {
   const [formData, setFormData] = useState({
     name: '',
     username: '',
+    phone: '',
     password: '',
     roles: [] as Role[],
     selectedRestaurants: [restaurant.id] as string[]
@@ -111,7 +112,8 @@ export function EmployeeList({ restaurant }: EmployeeListProps) {
       .from('employees')
       .insert([{
         name: formData.name,
-        phone: formData.username,
+        username: formData.username,
+        phone: formData.phone || '',
         email: emailForAuth,
         roles: formData.roles,
         auth_user_id: authData.user.id
@@ -144,7 +146,7 @@ export function EmployeeList({ restaurant }: EmployeeListProps) {
     if (formData.selectedRestaurants.includes(restaurant.id)) {
       setEmployees([...employees, newEmployee]);
     }
-    setFormData({ name: '', username: '', password: '', roles: [], selectedRestaurants: [restaurant.id] });
+    setFormData({ name: '', username: '', phone: '', password: '', roles: [], selectedRestaurants: [restaurant.id] });
     setShowAddForm(false);
   };
 
@@ -217,6 +219,13 @@ export function EmployeeList({ restaurant }: EmployeeListProps) {
               placeholder="Username (for login)"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
               required
+            />
+            <input
+              type="text"
+              value={formData.phone}
+              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+              placeholder="Phone (optional)"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
             />
             <input
               type="password"
@@ -300,7 +309,7 @@ export function EmployeeList({ restaurant }: EmployeeListProps) {
           >
             <div>
               <div className="font-medium text-gray-800">{employee.name}</div>
-              <div className="text-sm text-gray-500">@{employee.phone}</div>
+              <div className="text-sm text-gray-500">@{employee.username}</div>
               {employee.roles && employee.roles.length > 0 && (
                 <div className="flex gap-1 mt-1">
                   {employee.roles.map(role => (
