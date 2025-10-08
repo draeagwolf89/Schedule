@@ -3,7 +3,7 @@ import { LogIn } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 export function LoginPage() {
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -12,6 +12,9 @@ export function LoginPage() {
     e.preventDefault();
     setError('');
     setLoading(true);
+
+    // Convert username to email format for authentication
+    const email = `${username.trim()}@schedule.app`;
 
     const { error: signInError } = await supabase.auth.signInWithPassword({
       email,
@@ -46,14 +49,14 @@ export function LoginPage() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Email
+              Username
             </label>
             <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-              placeholder="your.email@example.com"
+              placeholder="Enter your username"
               required
             />
           </div>
