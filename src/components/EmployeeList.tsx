@@ -22,7 +22,6 @@ export function EmployeeList({ restaurant }: EmployeeListProps) {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    phone: '',
     password: '',
     roles: [] as Role[],
     selectedRestaurants: [restaurant.id] as string[]
@@ -109,7 +108,6 @@ export function EmployeeList({ restaurant }: EmployeeListProps) {
       .insert([{
         name: formData.name,
         email: formData.email,
-        phone: formData.phone,
         roles: formData.roles,
         auth_user_id: authData.user.id
       }])
@@ -141,7 +139,7 @@ export function EmployeeList({ restaurant }: EmployeeListProps) {
     if (formData.selectedRestaurants.includes(restaurant.id)) {
       setEmployees([...employees, newEmployee]);
     }
-    setFormData({ name: '', email: '', phone: '', password: '', roles: [], selectedRestaurants: [restaurant.id] });
+    setFormData({ name: '', email: '', password: '', roles: [], selectedRestaurants: [restaurant.id] });
     setShowAddForm(false);
   };
 
@@ -212,14 +210,6 @@ export function EmployeeList({ restaurant }: EmployeeListProps) {
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               placeholder="Email"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-              required
-            />
-            <input
-              type="tel"
-              value={formData.phone}
-              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-              placeholder="Phone"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
               required
             />
@@ -307,7 +297,6 @@ export function EmployeeList({ restaurant }: EmployeeListProps) {
               <div className="font-medium text-gray-800">{employee.name}</div>
               <div className="text-sm text-gray-500">
                 {employee.email}
-                {employee.phone && ` • ${employee.phone}`}
               </div>
               {employee.roles && employee.roles.length > 0 && (
                 <div className="flex gap-1 mt-1">
