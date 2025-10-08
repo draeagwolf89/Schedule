@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { LogIn } from 'lucide-react';
-import { auth } from '../lib/storage';
+import { signIn } from '../lib/auth';
 
 interface LoginPageProps {
   onLogin: () => void;
@@ -17,15 +17,14 @@ export function LoginPage({ onLogin }: LoginPageProps) {
     setError('');
     setLoading(true);
 
-    const user = auth.signIn(email, password);
-
-    if (user) {
+    try {
+      await signIn(email, password);
       onLogin();
-    } else {
-      setError('Invalid email or password');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to sign in');
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   return (

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Calendar, Trash2, ChevronLeft, ChevronRight, X } from 'lucide-react';
-import { storage } from '../lib/storage';
+import { supabase } from '../lib/supabase';
 import type { Employee, Restaurant, Shift } from '../lib/types';
 
 interface ScheduleManagerProps {
@@ -13,11 +13,11 @@ export function ScheduleManager({ restaurant }: ScheduleManagerProps) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [formData, setFormData] = useState({
-    employeeId: '',
+    employee_id: '',
     date: '',
-    startTime: '09:00',
-    endTime: '17:00',
-    shiftType: 'AM' as 'AM' | 'PM'
+    start_time: '09:00',
+    end_time: '17:00',
+    shift_type: 'AM' as 'AM' | 'PM'
   });
   const [loading, setLoading] = useState(false);
 
@@ -48,55 +48,104 @@ export function ScheduleManager({ restaurant }: ScheduleManagerProps) {
 
     while (current <= endDate) {
       dates.push(new Date(current));
-      current.setDate(current.setDate(current.getDate() + 1));
+      current.setDate(current.getDate() + 1);
     }
 
     return dates;
   }
 
-  const loadEmployees = () => {
-    const data = storage.employees.getByRestaurant(restaurant.id);
-    setEmployees(data);
-    if (data.length > 0 && !formData.employeeId) {
-      setFormData(prev => ({ ...prev, employeeId: data[0].id }));
+  const loadEmployees = async () => {
+    const { data, error } = await supabase
+      .from('restaurant_employees')
+      .select('employee:employees(*)')
+      .eq('restaurant_id', restaurant.id);
+
+    if (error) {
+      console.error('Error loading employees:', error);
+      return;
+    }
+
+    const employeeList = data?.map(re => re.employee).filter(Boolean) || [];
+    setEmployees(employeeList as Employee[]);
+    if (employeeList && employeeList.length > 0 && !formData.employee_id) {
+      setFormData(prev => ({ ...prev, employee_id: employeeList[0].id }));
     }
   };
 
-  const loadShifts = () => {
-    const data = storage.shifts.getByRestaurant(restaurant.id);
-    setShifts(data);
+  const loadShifts = async () => {
+    const year = currentMonth.getFullYear();
+    const month = currentMonth.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+
+    const startDate = new Date(firstDay);
+    startDate.setDate(startDate.getDate() - firstDay.getDay());
+
+    const endDate = new Date(lastDay);
+    endDate.setDate(endDate.getDate() + (6 - lastDay.getDay()));
+
+    const { data, error } = await supabase
+      .from('shifts')
+      .select('*')
+      .eq('restaurant_id', restaurant.id)
+      .gte('date', formatDate(startDate))
+      .lte('date', formatDate(endDate))
+      .order('date')
+      .order('start_time');
+
+    if (error) {
+      console.error('Error loading shifts:', error);
+      return;
+    }
+
+    setShifts(data || []);
   };
 
-  const handleAddShift = (e: React.FormEvent) => {
+  const handleAddShift = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.employeeId || !formData.date) return;
+    if (!formData.employee_id || !formData.date) return;
 
     setLoading(true);
-    const newShift = storage.shifts.create({
-      restaurantId: restaurant.id,
-      employeeId: formData.employeeId,
-      date: formData.date,
-      startTime: formData.startTime,
-      endTime: formData.endTime,
-      shiftType: formData.shiftType
-    });
+    const { data, error } = await supabase
+      .from('shifts')
+      .insert([{ ...formData, restaurant_id: restaurant.id }])
+      .select()
+      .single();
+
     setLoading(false);
 
-    setShifts([...shifts, newShift]);
+    if (error) {
+      console.error('Error adding shift:', error);
+      return;
+    }
+
+    if (data) {
+      setShifts([...shifts, data]);
+    }
+
     setFormData({
-      employeeId: employees[0]?.id || '',
+      employee_id: employees[0]?.id || '',
       date: '',
-      startTime: '09:00',
-      endTime: '17:00',
-      shiftType: 'AM'
+      start_time: '09:00',
+      end_time: '17:00',
+      shift_type: 'AM'
     });
     setShowAddForm(false);
   };
 
-  const handleDeleteShift = (id: string) => {
+  const handleDeleteShift = async (id: string) => {
     if (!confirm('Are you sure you want to delete this shift?')) return;
 
-    storage.shifts.delete(id);
+    const { error } = await supabase
+      .from('shifts')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error deleting shift:', error);
+      return;
+    }
+
     setShifts(shifts.filter(shift => shift.id !== id));
   };
 
@@ -118,7 +167,7 @@ export function ScheduleManager({ restaurant }: ScheduleManagerProps) {
     setFormData({
       ...formData,
       date: dateStr,
-      employeeId: employees[0]?.id || formData.employeeId
+      employee_id: employees[0]?.id || formData.employee_id
     });
     setShowAddForm(true);
   };
@@ -151,8 +200,8 @@ export function ScheduleManager({ restaurant }: ScheduleManagerProps) {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Employee</label>
                 <select
-                  value={formData.employeeId}
-                  onChange={(e) => setFormData({ ...formData, employeeId: e.target.value })}
+                  value={formData.employee_id}
+                  onChange={(e) => setFormData({ ...formData, employee_id: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                   required
                 >
@@ -176,8 +225,8 @@ export function ScheduleManager({ restaurant }: ScheduleManagerProps) {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Shift Type</label>
                 <select
-                  value={formData.shiftType}
-                  onChange={(e) => setFormData({ ...formData, shiftType: e.target.value as 'AM' | 'PM' })}
+                  value={formData.shift_type}
+                  onChange={(e) => setFormData({ ...formData, shift_type: e.target.value as 'AM' | 'PM' })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                   required
                 >
@@ -190,8 +239,8 @@ export function ScheduleManager({ restaurant }: ScheduleManagerProps) {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Start Time</label>
                   <input
                     type="time"
-                    value={formData.startTime}
-                    onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
+                    value={formData.start_time}
+                    onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                     required
                   />
@@ -200,8 +249,8 @@ export function ScheduleManager({ restaurant }: ScheduleManagerProps) {
                   <label className="block text-sm font-medium text-gray-700 mb-1">End Time</label>
                   <input
                     type="time"
-                    value={formData.endTime}
-                    onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
+                    value={formData.end_time}
+                    onChange={(e) => setFormData({ ...formData, end_time: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                     required
                   />
@@ -294,13 +343,13 @@ export function ScheduleManager({ restaurant }: ScheduleManagerProps) {
                   </div>
                   <div className="p-1 flex-1 overflow-y-auto space-y-1">
                     {dayShifts.map((shift) => {
-                      const employee = employees.find(e => e.id === shift.employeeId);
+                      const employee = employees.find(e => e.id === shift.employee_id);
                       return (
                         <div
                           key={shift.id}
                           onClick={(e) => e.stopPropagation()}
                           className={`${
-                            shift.shiftType === 'AM' ? 'bg-blue-50 border-blue-200' : 'bg-orange-50 border-orange-200'
+                            shift.shift_type === 'AM' ? 'bg-blue-50 border-blue-200' : 'bg-orange-50 border-orange-200'
                           } border rounded px-1.5 py-0.5 text-[10px] relative group`}
                         >
                           <button
@@ -314,7 +363,7 @@ export function ScheduleManager({ restaurant }: ScheduleManagerProps) {
                             <Trash2 className="w-2.5 h-2.5" />
                           </button>
                           <div className="font-medium text-gray-800">{employee?.name}</div>
-                          <div className="text-gray-600">{shift.shiftType}</div>
+                          <div className="text-gray-600">{shift.shift_type}</div>
                         </div>
                       );
                     })}

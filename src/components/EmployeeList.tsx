@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Plus, Users, Trash2 } from 'lucide-react';
-import { storage } from '../lib/storage';
+import { supabase } from '../lib/supabase';
 import type { Employee, Restaurant } from '../lib/types';
 
 interface EmployeeListProps {
@@ -14,8 +14,7 @@ export function EmployeeList({ restaurant }: EmployeeListProps) {
     name: '',
     email: '',
     phone: '',
-    position: 'server',
-    password: ''
+    position: 'server'
   });
   const [loading, setLoading] = useState(false);
 
@@ -23,31 +22,72 @@ export function EmployeeList({ restaurant }: EmployeeListProps) {
     loadEmployees();
   }, [restaurant.id]);
 
-  const loadEmployees = () => {
-    const data = storage.employees.getByRestaurant(restaurant.id);
-    setEmployees(data);
+  const loadEmployees = async () => {
+    const { data, error } = await supabase
+      .from('restaurant_employees')
+      .select('employee:employees(*)')
+      .eq('restaurant_id', restaurant.id);
+
+    if (error) {
+      console.error('Error loading employees:', error);
+      return;
+    }
+
+    const employeeList = data?.map(re => re.employee).filter(Boolean) || [];
+    setEmployees(employeeList as Employee[]);
   };
 
-  const handleAddEmployee = (e: React.FormEvent) => {
+  const handleAddEmployee = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name.trim()) return;
 
     setLoading(true);
 
-    const newEmployee = storage.employees.create(formData);
-    storage.restaurantEmployees.assign(restaurant.id, newEmployee.id);
+    const { data: newEmployee, error: employeeError } = await supabase
+      .from('employees')
+      .insert([formData])
+      .select()
+      .single();
+
+    if (employeeError) {
+      console.error('Error adding employee:', employeeError);
+      setLoading(false);
+      return;
+    }
+
+    const { error: linkError } = await supabase
+      .from('restaurant_employees')
+      .insert([{
+        employee_id: newEmployee.id,
+        restaurant_id: restaurant.id
+      }]);
 
     setLoading(false);
 
+    if (linkError) {
+      console.error('Error linking employee to restaurant:', linkError);
+      return;
+    }
+
     setEmployees([...employees, newEmployee]);
-    setFormData({ name: '', email: '', phone: '', position: 'server', password: '' });
+    setFormData({ name: '', email: '', phone: '', position: 'server' });
     setShowAddForm(false);
   };
 
-  const handleRemoveEmployee = (id: string) => {
+  const handleRemoveEmployee = async (id: string) => {
     if (!confirm('Remove this employee from this restaurant?')) return;
 
-    storage.restaurantEmployees.unassign(restaurant.id, id);
+    const { error } = await supabase
+      .from('restaurant_employees')
+      .delete()
+      .eq('employee_id', id)
+      .eq('restaurant_id', restaurant.id);
+
+    if (error) {
+      console.error('Error removing employee:', error);
+      return;
+    }
+
     setEmployees(employees.filter(emp => emp.id !== id));
   };
 
@@ -91,14 +131,6 @@ export function EmployeeList({ restaurant }: EmployeeListProps) {
               value={formData.phone}
               onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
               placeholder="Phone"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-              required
-            />
-            <input
-              type="password"
-              value={formData.password}
-              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-              placeholder="Password"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
               required
             />

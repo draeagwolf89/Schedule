@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Plus, Store } from 'lucide-react';
-import { storage } from '../lib/storage';
+import { supabase } from '../lib/supabase';
 import type { Restaurant } from '../lib/types';
 
 interface RestaurantSelectorProps {
@@ -19,25 +19,43 @@ export function RestaurantSelector({ selectedRestaurant, onSelectRestaurant }: R
     loadRestaurants();
   }, []);
 
-  const loadRestaurants = () => {
-    const data = storage.restaurants.getAll();
-    const sorted = data.sort((a, b) => a.name.localeCompare(b.name));
-    setRestaurants(sorted);
-    if (sorted.length > 0 && !selectedRestaurant) {
-      onSelectRestaurant(sorted[0]);
+  const loadRestaurants = async () => {
+    const { data, error } = await supabase
+      .from('restaurants')
+      .select('*')
+      .order('name');
+
+    if (error) {
+      console.error('Error loading restaurants:', error);
+      return;
+    }
+
+    setRestaurants(data || []);
+    if (data && data.length > 0 && !selectedRestaurant) {
+      onSelectRestaurant(data[0]);
     }
   };
 
-  const handleAddRestaurant = (e: React.FormEvent) => {
+  const handleAddRestaurant = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newRestaurantName.trim()) return;
 
     setLoading(true);
-    const newRestaurant = storage.restaurants.create({ name: newRestaurantName });
+    const { data, error } = await supabase
+      .from('restaurants')
+      .insert([{ name: newRestaurantName }])
+      .select()
+      .single();
+
     setLoading(false);
 
-    setRestaurants([...restaurants, newRestaurant]);
-    onSelectRestaurant(newRestaurant);
+    if (error) {
+      console.error('Error adding restaurant:', error);
+      return;
+    }
+
+    setRestaurants([...restaurants, data]);
+    onSelectRestaurant(data);
     setNewRestaurantName('');
     setNewRestaurantAddress('');
     setShowAddForm(false);
