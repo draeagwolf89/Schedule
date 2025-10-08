@@ -37,12 +37,12 @@ export function ScheduleManager({ restaurant }: ScheduleManagerProps) {
   }, [restaurant.id]);
 
   useEffect(() => {
-    if (formData.employee_id && formData.shift_date) {
+    if (formData.employee_id && formData.shift_date && formData.shift_type) {
       checkConflicts();
     } else {
       setConflictingShifts([]);
     }
-  }, [formData.employee_id, formData.shift_date]);
+  }, [formData.employee_id, formData.shift_date, formData.shift_type]);
 
   useEffect(() => {
     loadShifts();
@@ -130,15 +130,24 @@ export function ScheduleManager({ restaurant }: ScheduleManagerProps) {
       .from('shifts')
       .select('*, employee:employees(*), restaurant:restaurants(*)')
       .eq('employee_id', formData.employee_id)
-      .eq('shift_date', formData.shift_date)
-      .neq('restaurant_id', restaurant.id);
+      .eq('shift_date', formData.shift_date);
 
     if (error) {
       console.error('Error checking conflicts:', error);
       return;
     }
 
-    setConflictingShifts(data as ConflictingShift[] || []);
+    const conflicts = (data as ConflictingShift[] || []).filter(shift => {
+      if (shift.restaurant_id === restaurant.id && shift.shift_type !== formData.shift_type) {
+        return true;
+      }
+      if (shift.restaurant_id !== restaurant.id) {
+        return true;
+      }
+      return false;
+    });
+
+    setConflictingShifts(conflicts);
   };
 
   const handleAddShift = async (e: React.FormEvent) => {
@@ -293,17 +302,20 @@ export function ScheduleManager({ restaurant }: ScheduleManagerProps) {
                     <div className="flex-1">
                       <p className="text-sm font-medium text-yellow-800">Scheduling Conflict</p>
                       <p className="text-sm text-yellow-700 mt-1">
-                        This employee is already scheduled at:
+                        This employee is already scheduled:
                       </p>
                       <ul className="mt-2 space-y-1">
-                        {conflictingShifts.map((conflict) => (
-                          <li key={conflict.id} className="text-sm text-yellow-800 font-medium">
-                            • {conflict.restaurant.name} ({conflict.shift_type})
-                          </li>
-                        ))}
+                        {conflictingShifts.map((conflict) => {
+                          const isSameRestaurant = conflict.restaurant_id === restaurant.id;
+                          return (
+                            <li key={conflict.id} className="text-sm text-yellow-800 font-medium">
+                              • {isSameRestaurant ? 'Same location' : conflict.restaurant.name} as {conflict.shift_type}
+                            </li>
+                          );
+                        })}
                       </ul>
                       <p className="text-xs text-yellow-600 mt-2">
-                        You can still proceed, but be aware of the double-booking.
+                        You can still proceed, but be aware of the conflict.
                       </p>
                     </div>
                   </div>
