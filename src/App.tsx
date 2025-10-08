@@ -3,14 +3,13 @@ import { RestaurantSelector } from './components/RestaurantSelector';
 import { EmployeeList } from './components/EmployeeList';
 import { ScheduleManager } from './components/ScheduleManager';
 import { EmployeeScheduleView } from './components/EmployeeScheduleView';
-import { EmployeeAccountManager } from './components/EmployeeAccountManager';
 import { LoginPage } from './components/LoginPage';
 import { AuthProvider, useAuth } from './lib/auth-context';
-import { Users, Calendar, LogOut, UserCog } from 'lucide-react';
+import { Users, Calendar, LogOut } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import type { Restaurant } from './lib/types';
 
-type TabType = 'employees' | 'schedule' | 'accounts';
+type TabType = 'employees' | 'schedule';
 
 function AppContent() {
   const { user, isAdmin, employeeId, loading } = useAuth();
@@ -124,17 +123,6 @@ function AppContent() {
                     <Calendar className="w-4 h-4" />
                     Schedule
                   </button>
-                  <button
-                    onClick={() => setActiveTab('accounts')}
-                    className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-colors ${
-                      activeTab === 'accounts'
-                        ? 'bg-orange-600 text-white'
-                        : 'text-gray-600 hover:bg-gray-100'
-                    }`}
-                  >
-                    <UserCog className="w-4 h-4" />
-                    Employee Accounts
-                  </button>
                 </div>
               </div>
 
@@ -144,9 +132,6 @@ function AppContent() {
                 )}
                 {activeTab === 'schedule' && (
                   <ScheduleManager restaurant={selectedRestaurant} />
-                )}
-                {activeTab === 'accounts' && (
-                  <EmployeeAccountManager />
                 )}
               </div>
             </>

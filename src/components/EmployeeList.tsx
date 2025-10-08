@@ -23,6 +23,7 @@ export function EmployeeList({ restaurant }: EmployeeListProps) {
     name: '',
     email: '',
     phone: '',
+    password: '',
     position: 'server',
     roles: [] as Role[],
     selectedRestaurants: [restaurant.id] as string[]
@@ -75,7 +76,34 @@ export function EmployeeList({ restaurant }: EmployeeListProps) {
       return;
     }
 
+    if (!formData.password || formData.password.length < 6) {
+      alert('Please provide a password with at least 6 characters');
+      return;
+    }
+
     setLoading(true);
+
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email: formData.email,
+      password: formData.password,
+      options: {
+        data: {
+          name: formData.name,
+        },
+      },
+    });
+
+    if (authError) {
+      alert(`Error creating account: ${authError.message}`);
+      setLoading(false);
+      return;
+    }
+
+    if (!authData.user) {
+      alert('Failed to create user account');
+      setLoading(false);
+      return;
+    }
 
     const { data: newEmployee, error: employeeError } = await supabase
       .from('employees')
@@ -84,7 +112,8 @@ export function EmployeeList({ restaurant }: EmployeeListProps) {
         email: formData.email,
         phone: formData.phone,
         position: formData.position,
-        roles: formData.roles
+        roles: formData.roles,
+        auth_user_id: authData.user.id
       }])
       .select()
       .single();
@@ -114,7 +143,7 @@ export function EmployeeList({ restaurant }: EmployeeListProps) {
     if (formData.selectedRestaurants.includes(restaurant.id)) {
       setEmployees([...employees, newEmployee]);
     }
-    setFormData({ name: '', email: '', phone: '', position: 'server', roles: [], selectedRestaurants: [restaurant.id] });
+    setFormData({ name: '', email: '', phone: '', password: '', position: 'server', roles: [], selectedRestaurants: [restaurant.id] });
     setShowAddForm(false);
   };
 
@@ -195,6 +224,15 @@ export function EmployeeList({ restaurant }: EmployeeListProps) {
               placeholder="Phone"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
               required
+            />
+            <input
+              type="password"
+              value={formData.password}
+              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+              placeholder="Password (min 6 characters)"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              required
+              minLength={6}
             />
 
             <div>
