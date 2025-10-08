@@ -2,10 +2,14 @@ import { useState } from 'react';
 import { RestaurantSelector } from './components/RestaurantSelector';
 import { EmployeeList } from './components/EmployeeList';
 import { ScheduleManager } from './components/ScheduleManager';
+import { Users, Calendar } from 'lucide-react';
 import type { Restaurant } from './lib/types';
+
+type TabType = 'employees' | 'schedule';
 
 function App() {
   const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
+  const [activeTab, setActiveTab] = useState<TabType>('schedule');
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
@@ -23,13 +27,40 @@ function App() {
 
           {selectedRestaurant && (
             <>
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-1">
+              <div className="bg-white rounded-lg shadow-sm border-b">
+                <div className="flex gap-1 p-2">
+                  <button
+                    onClick={() => setActiveTab('employees')}
+                    className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-colors ${
+                      activeTab === 'employees'
+                        ? 'bg-orange-600 text-white'
+                        : 'text-gray-600 hover:bg-gray-100'
+                    }`}
+                  >
+                    <Users className="w-4 h-4" />
+                    Employees
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('schedule')}
+                    className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-colors ${
+                      activeTab === 'schedule'
+                        ? 'bg-orange-600 text-white'
+                        : 'text-gray-600 hover:bg-gray-100'
+                    }`}
+                  >
+                    <Calendar className="w-4 h-4" />
+                    Schedule
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                {activeTab === 'employees' && (
                   <EmployeeList restaurant={selectedRestaurant} />
-                </div>
-                <div className="lg:col-span-2">
+                )}
+                {activeTab === 'schedule' && (
                   <ScheduleManager restaurant={selectedRestaurant} />
-                </div>
+                )}
               </div>
             </>
           )}
