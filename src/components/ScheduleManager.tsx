@@ -23,8 +23,6 @@ export function ScheduleManager({ restaurant }: ScheduleManagerProps) {
   const [formData, setFormData] = useState({
     employee_id: '',
     date: '',
-    start_time: '09:00',
-    end_time: '17:00',
     role: 'server' as Role
   });
   const [loading, setLoading] = useState(false);
@@ -98,8 +96,7 @@ export function ScheduleManager({ restaurant }: ScheduleManagerProps) {
       .eq('restaurant_id', restaurant.id)
       .gte('date', formatDate(startDate))
       .lte('date', formatDate(endDate))
-      .order('date')
-      .order('start_time');
+      .order('date');
 
     if (error) {
       console.error('Error loading shifts:', error);
@@ -112,6 +109,12 @@ export function ScheduleManager({ restaurant }: ScheduleManagerProps) {
   const handleAddShift = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.employee_id || !formData.date) return;
+
+    const selectedEmployee = employees.find(emp => emp.id === formData.employee_id);
+    if (selectedEmployee && !selectedEmployee.roles.includes(formData.role)) {
+      alert(`This employee is not assigned the ${ROLES.find(r => r.value === formData.role)?.label} role. Please select a role they are assigned to.`);
+      return;
+    }
 
     setLoading(true);
     const { data, error } = await supabase
@@ -139,8 +142,6 @@ export function ScheduleManager({ restaurant }: ScheduleManagerProps) {
     setFormData({
       employee_id: employees[0]?.id || '',
       date: '',
-      start_time: '09:00',
-      end_time: '17:00',
       role: 'server'
     });
     setShowAddForm(false);
@@ -189,6 +190,11 @@ export function ScheduleManager({ restaurant }: ScheduleManagerProps) {
     return ROLES.find(r => r.value === role)?.color || 'bg-gray-50 border-gray-200 text-gray-800';
   };
 
+  const getAvailableRolesForEmployee = (employeeId: string): Role[] => {
+    const employee = employees.find(e => e.id === employeeId);
+    return employee?.roles || [];
+  };
+
   const monthDates = getMonthDates();
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const currentMonthNumber = currentMonth.getMonth();
@@ -223,21 +229,6 @@ export function ScheduleManager({ restaurant }: ScheduleManagerProps) {
             <h3 className="text-lg font-semibold mb-4">Add Shift</h3>
             <div className="space-y-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Employee</label>
-                <select
-                  value={formData.employee_id}
-                  onChange={(e) => setFormData({ ...formData, employee_id: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                  required
-                >
-                  {employees.map((emp) => (
-                    <option key={emp.id} value={emp.id}>
-                      {emp.name} ({emp.position})
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
                 <input
                   type="date"
@@ -248,6 +239,29 @@ export function ScheduleManager({ restaurant }: ScheduleManagerProps) {
                 />
               </div>
               <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Employee</label>
+                <select
+                  value={formData.employee_id}
+                  onChange={(e) => {
+                    const newEmployeeId = e.target.value;
+                    const availableRoles = getAvailableRolesForEmployee(newEmployeeId);
+                    setFormData({
+                      ...formData,
+                      employee_id: newEmployeeId,
+                      role: availableRoles.length > 0 ? availableRoles[0] : 'server'
+                    });
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  required
+                >
+                  {employees.map((emp) => (
+                    <option key={emp.id} value={emp.id}>
+                      {emp.name} ({emp.roles.map(r => ROLES.find(role => role.value === r)?.label).join(', ')})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
                 <select
                   value={formData.role}
@@ -255,34 +269,15 @@ export function ScheduleManager({ restaurant }: ScheduleManagerProps) {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                   required
                 >
-                  {ROLES.map((role) => (
-                    <option key={role.value} value={role.value}>
-                      {role.label}
-                    </option>
-                  ))}
+                  {getAvailableRolesForEmployee(formData.employee_id).map((role) => {
+                    const roleInfo = ROLES.find(r => r.value === role);
+                    return (
+                      <option key={role} value={role}>
+                        {roleInfo?.label}
+                      </option>
+                    );
+                  })}
                 </select>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Start Time</label>
-                  <input
-                    type="time"
-                    value={formData.start_time}
-                    onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">End Time</label>
-                  <input
-                    type="time"
-                    value={formData.end_time}
-                    onChange={(e) => setFormData({ ...formData, end_time: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                    required
-                  />
-                </div>
               </div>
             </div>
             <div className="flex gap-2 mt-6">

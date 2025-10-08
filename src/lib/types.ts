@@ -26,6 +26,7 @@ export type Database = {
           phone: string;
           email: string;
           auth_user_id: string | null;
+          roles: ('door' | 'gelato' | 'server')[];
           created_at: string;
         };
         Insert: {
@@ -35,6 +36,7 @@ export type Database = {
           phone: string;
           email: string;
           auth_user_id?: string | null;
+          roles: ('door' | 'gelato' | 'server')[];
           created_at?: string;
         };
         Update: {
@@ -44,6 +46,7 @@ export type Database = {
           phone?: string;
           email?: string;
           auth_user_id?: string | null;
+          roles?: ('door' | 'gelato' | 'server')[];
           created_at?: string;
         };
       };
@@ -73,8 +76,6 @@ export type Database = {
           restaurant_id: string;
           employee_id: string;
           date: string;
-          start_time: string;
-          end_time: string;
           role: 'door' | 'gelato' | 'server';
           created_at: string;
         };
@@ -83,8 +84,6 @@ export type Database = {
           restaurant_id: string;
           employee_id: string;
           date: string;
-          start_time: string;
-          end_time: string;
           role: 'door' | 'gelato' | 'server';
           created_at?: string;
         };
@@ -93,8 +92,6 @@ export type Database = {
           restaurant_id?: string;
           employee_id?: string;
           date?: string;
-          start_time?: string;
-          end_time?: string;
           role?: 'door' | 'gelato' | 'server';
           created_at?: string;
         };

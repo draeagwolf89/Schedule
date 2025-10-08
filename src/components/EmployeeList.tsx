@@ -7,6 +7,14 @@ interface EmployeeListProps {
   restaurant: Restaurant;
 }
 
+type Role = 'door' | 'gelato' | 'server';
+
+const ROLES: { value: Role; label: string }[] = [
+  { value: 'door', label: 'Door' },
+  { value: 'gelato', label: 'Gelato' },
+  { value: 'server', label: 'Server' }
+];
+
 export function EmployeeList({ restaurant }: EmployeeListProps) {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -14,7 +22,8 @@ export function EmployeeList({ restaurant }: EmployeeListProps) {
     name: '',
     email: '',
     phone: '',
-    position: 'server'
+    position: 'server',
+    roles: [] as Role[]
   });
   const [loading, setLoading] = useState(false);
 
@@ -39,13 +48,22 @@ export function EmployeeList({ restaurant }: EmployeeListProps) {
 
   const handleAddEmployee = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name.trim()) return;
+    if (!formData.name.trim() || formData.roles.length === 0) {
+      alert('Please provide a name and select at least one role');
+      return;
+    }
 
     setLoading(true);
 
     const { data: newEmployee, error: employeeError } = await supabase
       .from('employees')
-      .insert([formData])
+      .insert([{
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        position: formData.position,
+        roles: formData.roles
+      }])
       .select()
       .single();
 
@@ -70,7 +88,7 @@ export function EmployeeList({ restaurant }: EmployeeListProps) {
     }
 
     setEmployees([...employees, newEmployee]);
-    setFormData({ name: '', email: '', phone: '', position: 'server' });
+    setFormData({ name: '', email: '', phone: '', position: 'server', roles: [] });
     setShowAddForm(false);
   };
 
@@ -89,6 +107,15 @@ export function EmployeeList({ restaurant }: EmployeeListProps) {
     }
 
     setEmployees(employees.filter(emp => emp.id !== id));
+  };
+
+  const toggleRole = (role: Role) => {
+    setFormData(prev => ({
+      ...prev,
+      roles: prev.roles.includes(role)
+        ? prev.roles.filter(r => r !== role)
+        : [...prev.roles, role]
+    }));
   };
 
   return (
@@ -145,6 +172,29 @@ export function EmployeeList({ restaurant }: EmployeeListProps) {
               <option value="host">Host</option>
               <option value="bartender">Bartender</option>
             </select>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Roles (select all that apply)
+              </label>
+              <div className="flex gap-2">
+                {ROLES.map(role => (
+                  <button
+                    key={role.value}
+                    type="button"
+                    onClick={() => toggleRole(role.value)}
+                    className={`px-4 py-2 rounded-lg border transition-colors ${
+                      formData.roles.includes(role.value)
+                        ? 'bg-green-600 text-white border-green-600'
+                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    {role.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div className="flex gap-2">
               <button
                 type="submit"
@@ -178,6 +228,18 @@ export function EmployeeList({ restaurant }: EmployeeListProps) {
                 {employee.email && ` • ${employee.email}`}
                 {employee.phone && ` • ${employee.phone}`}
               </div>
+              {employee.roles && employee.roles.length > 0 && (
+                <div className="flex gap-1 mt-1">
+                  {employee.roles.map(role => (
+                    <span
+                      key={role}
+                      className="px-2 py-0.5 text-xs bg-green-100 text-green-700 rounded"
+                    >
+                      {ROLES.find(r => r.value === role)?.label}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
             <button
               onClick={() => handleRemoveEmployee(employee.id)}
