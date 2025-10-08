@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus, Users, Trash2, Link2Off } from 'lucide-react';
+import { Plus, Users, Trash2, Link2Off, MapPin, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Employee, Restaurant } from '../lib/types';
 
@@ -21,6 +21,8 @@ export function EmployeeList({ restaurant }: EmployeeListProps) {
   const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
   const [loading, setLoading] = useState(false);
   const [employeeLocations, setEmployeeLocations] = useState<Record<string, number>>({});
+  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+  const [employeeRestaurants, setEmployeeRestaurants] = useState<Restaurant[]>([]);
 
   useEffect(() => {
     loadEmployees();
@@ -72,6 +74,26 @@ export function EmployeeList({ restaurant }: EmployeeListProps) {
       locationCounts[er.employee_id] = (locationCounts[er.employee_id] || 0) + 1;
     });
     setEmployeeLocations(locationCounts);
+  };
+
+  const loadEmployeeRestaurants = async (employeeId: string) => {
+    const { data, error } = await supabase
+      .from('employee_restaurants')
+      .select('restaurant:restaurants(*)')
+      .eq('employee_id', employeeId);
+
+    if (error) {
+      console.error('Error loading employee restaurants:', error);
+      return;
+    }
+
+    const restaurants = data?.map(er => er.restaurant).filter(Boolean) || [];
+    setEmployeeRestaurants(restaurants as Restaurant[]);
+  };
+
+  const handleEmployeeClick = async (employee: Employee) => {
+    setSelectedEmployee(employee);
+    await loadEmployeeRestaurants(employee.id);
   };
 
   const handleAddEmployee = async (e: React.FormEvent) => {
@@ -317,7 +339,8 @@ export function EmployeeList({ restaurant }: EmployeeListProps) {
           return (
             <div
               key={employee.id}
-              className="flex items-center justify-between px-4 py-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+              className="flex items-center justify-between px-4 py-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+              onClick={() => handleEmployeeClick(employee)}
             >
               <div>
                 <div className="flex items-center gap-2">
@@ -336,7 +359,10 @@ export function EmployeeList({ restaurant }: EmployeeListProps) {
                 </div>
               </div>
               <button
-                onClick={() => handleRemoveEmployee(employee.id)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleRemoveEmployee(employee.id);
+                }}
                 className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                 title={isMultiLocation ? 'Remove from this restaurant' : 'Delete employee'}
               >
@@ -349,6 +375,54 @@ export function EmployeeList({ restaurant }: EmployeeListProps) {
           <p className="text-gray-500 text-center py-4">No employees yet. Add your first one!</p>
         )}
       </div>
+
+      {selectedEmployee && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setSelectedEmployee(null)}>
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-6 border-b">
+              <div>
+                <h3 className="text-xl font-semibold text-gray-800">{selectedEmployee.name}</h3>
+                <p className="text-sm text-gray-500">{selectedEmployee.role}</p>
+              </div>
+              <button
+                onClick={() => setSelectedEmployee(null)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6">
+              <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                <MapPin className="w-4 h-4" />
+                Working Locations
+              </h4>
+              <div className="space-y-2">
+                {employeeRestaurants.map((rest) => (
+                  <div
+                    key={rest.id}
+                    className="px-4 py-3 bg-gray-50 rounded-lg"
+                  >
+                    <div className="font-medium text-gray-800">{rest.name}</div>
+                    {rest.address && (
+                      <div className="text-sm text-gray-500">{rest.address}</div>
+                    )}
+                  </div>
+                ))}
+              </div>
+              {selectedEmployee.email && (
+                <div className="mt-4 pt-4 border-t">
+                  <p className="text-sm text-gray-600"><span className="font-medium">Email:</span> {selectedEmployee.email}</p>
+                </div>
+              )}
+              {selectedEmployee.phone && (
+                <div className="mt-2">
+                  <p className="text-sm text-gray-600"><span className="font-medium">Phone:</span> {selectedEmployee.phone}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
