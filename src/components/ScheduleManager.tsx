@@ -11,6 +11,10 @@ interface ShiftWithEmployee extends Shift {
   employee: Employee;
 }
 
+interface ConflictingShift extends ShiftWithEmployee {
+  restaurant: Restaurant;
+}
+
 export function ScheduleManager({ restaurant }: ScheduleManagerProps) {
   const [shifts, setShifts] = useState<ShiftWithEmployee[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -26,10 +30,19 @@ export function ScheduleManager({ restaurant }: ScheduleManagerProps) {
     shift_type: 'SERVER'
   });
   const [loading, setLoading] = useState(false);
+  const [conflictingShifts, setConflictingShifts] = useState<ConflictingShift[]>([]);
 
   useEffect(() => {
     loadEmployees();
   }, [restaurant.id]);
+
+  useEffect(() => {
+    if (formData.employee_id && formData.shift_date) {
+      checkConflicts();
+    } else {
+      setConflictingShifts([]);
+    }
+  }, [formData.employee_id, formData.shift_date]);
 
   useEffect(() => {
     loadShifts();
@@ -108,6 +121,24 @@ export function ScheduleManager({ restaurant }: ScheduleManagerProps) {
     }
 
     setShifts(data as ShiftWithEmployee[] || []);
+  };
+
+  const checkConflicts = async () => {
+    if (!formData.employee_id || !formData.shift_date) return;
+
+    const { data, error } = await supabase
+      .from('shifts')
+      .select('*, employee:employees(*), restaurant:restaurants(*)')
+      .eq('employee_id', formData.employee_id)
+      .eq('shift_date', formData.shift_date)
+      .neq('restaurant_id', restaurant.id);
+
+    if (error) {
+      console.error('Error checking conflicts:', error);
+      return;
+    }
+
+    setConflictingShifts(data as ConflictingShift[] || []);
   };
 
   const handleAddShift = async (e: React.FormEvent) => {
@@ -252,6 +283,32 @@ export function ScheduleManager({ restaurant }: ScheduleManagerProps) {
                   )}
                 </select>
               </div>
+
+              {conflictingShifts.length > 0 && (
+                <div className="bg-yellow-50 border-l-4 border-yellow-400 p-3 rounded">
+                  <div className="flex items-start gap-2">
+                    <svg className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-yellow-800">Scheduling Conflict</p>
+                      <p className="text-sm text-yellow-700 mt-1">
+                        This employee is already scheduled at:
+                      </p>
+                      <ul className="mt-2 space-y-1">
+                        {conflictingShifts.map((conflict) => (
+                          <li key={conflict.id} className="text-sm text-yellow-800 font-medium">
+                            • {conflict.restaurant.name} ({conflict.shift_type})
+                          </li>
+                        ))}
+                      </ul>
+                      <p className="text-xs text-yellow-600 mt-2">
+                        You can still proceed, but be aware of the double-booking.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
             <div className="flex gap-2 mt-6">
               <button
