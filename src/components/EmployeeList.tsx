@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus, Users, Trash2 } from 'lucide-react';
+import { Plus, Users, Trash2, Link2Off } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Employee, Restaurant } from '../lib/types';
 
@@ -20,10 +20,12 @@ export function EmployeeList({ restaurant }: EmployeeListProps) {
   });
   const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
   const [loading, setLoading] = useState(false);
+  const [employeeLocations, setEmployeeLocations] = useState<Record<string, number>>({});
 
   useEffect(() => {
     loadEmployees();
     loadAllEmployees();
+    loadEmployeeLocations();
   }, [restaurant.id]);
 
   const loadEmployees = async () => {
@@ -53,6 +55,23 @@ export function EmployeeList({ restaurant }: EmployeeListProps) {
     }
 
     setAllEmployees(data || []);
+  };
+
+  const loadEmployeeLocations = async () => {
+    const { data, error } = await supabase
+      .from('employee_restaurants')
+      .select('employee_id');
+
+    if (error) {
+      console.error('Error loading employee locations:', error);
+      return;
+    }
+
+    const locationCounts: Record<string, number> = {};
+    data?.forEach(er => {
+      locationCounts[er.employee_id] = (locationCounts[er.employee_id] || 0) + 1;
+    });
+    setEmployeeLocations(locationCounts);
   };
 
   const handleAddEmployee = async (e: React.FormEvent) => {
@@ -124,21 +143,44 @@ export function EmployeeList({ restaurant }: EmployeeListProps) {
     setShowLinkForm(false);
   };
 
-  const handleUnlinkEmployee = async (id: string) => {
-    if (!confirm('Remove this employee from this restaurant?')) return;
+  const handleRemoveEmployee = async (id: string) => {
+    const locationCount = employeeLocations[id] || 0;
+    const isOnlyLocation = locationCount === 1;
 
-    const { error } = await supabase
+    let confirmMessage = '';
+    if (isOnlyLocation) {
+      confirmMessage = 'This employee only works at this location. This will permanently delete the employee from the system. Continue?';
+    } else {
+      confirmMessage = `This employee works at ${locationCount} location(s). Remove from this restaurant only?`;
+    }
+
+    if (!confirm(confirmMessage)) return;
+
+    const { error: unlinkError } = await supabase
       .from('employee_restaurants')
       .delete()
       .eq('employee_id', id)
       .eq('restaurant_id', restaurant.id);
 
-    if (error) {
-      console.error('Error unlinking employee:', error);
+    if (unlinkError) {
+      console.error('Error removing employee:', unlinkError);
       return;
     }
 
+    if (isOnlyLocation) {
+      const { error: deleteError } = await supabase
+        .from('employees')
+        .delete()
+        .eq('id', id);
+
+      if (deleteError) {
+        console.error('Error deleting employee:', deleteError);
+      }
+      setAllEmployees(allEmployees.filter(emp => emp.id !== id));
+    }
+
     setEmployees(employees.filter(emp => emp.id !== id));
+    await loadEmployeeLocations();
   };
 
   return (
@@ -268,28 +310,41 @@ export function EmployeeList({ restaurant }: EmployeeListProps) {
       )}
 
       <div className="space-y-2">
-        {employees.map((employee) => (
-          <div
-            key={employee.id}
-            className="flex items-center justify-between px-4 py-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-          >
-            <div>
-              <div className="font-medium text-gray-800">{employee.name}</div>
-              <div className="text-sm text-gray-500">
-                {employee.role}
-                {employee.email && ` • ${employee.email}`}
-                {employee.phone && ` • ${employee.phone}`}
-              </div>
-            </div>
-            <button
-              onClick={() => handleUnlinkEmployee(employee.id)}
-              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-              title="Remove from this restaurant"
+        {employees.map((employee) => {
+          const locationCount = employeeLocations[employee.id] || 1;
+          const isMultiLocation = locationCount > 1;
+
+          return (
+            <div
+              key={employee.id}
+              className="flex items-center justify-between px-4 py-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
             >
-              <Trash2 className="w-4 h-4" />
-            </button>
-          </div>
-        ))}
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-gray-800">{employee.name}</span>
+                  {isMultiLocation && (
+                    <span className="flex items-center gap-1 px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">
+                      <Link2Off className="w-3 h-3" />
+                      {locationCount} locations
+                    </span>
+                  )}
+                </div>
+                <div className="text-sm text-gray-500">
+                  {employee.role}
+                  {employee.email && ` • ${employee.email}`}
+                  {employee.phone && ` • ${employee.phone}`}
+                </div>
+              </div>
+              <button
+                onClick={() => handleRemoveEmployee(employee.id)}
+                className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                title={isMultiLocation ? 'Remove from this restaurant' : 'Delete employee'}
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          );
+        })}
         {employees.length === 0 && !showAddForm && (
           <p className="text-gray-500 text-center py-4">No employees yet. Add your first one!</p>
         )}
