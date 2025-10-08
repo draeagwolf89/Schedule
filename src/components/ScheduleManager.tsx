@@ -78,19 +78,19 @@ export function ScheduleManager({ restaurant }: ScheduleManagerProps) {
 
   const loadEmployees = async () => {
     const { data, error } = await supabase
-      .from('employees')
-      .select('*')
-      .eq('restaurant_id', restaurant.id)
-      .order('name');
+      .from('employee_restaurants')
+      .select('employee:employees(*)')
+      .eq('restaurant_id', restaurant.id);
 
     if (error) {
       console.error('Error loading employees:', error);
       return;
     }
 
-    setEmployees(data || []);
-    if (data && data.length > 0 && !formData.employee_id) {
-      setFormData(prev => ({ ...prev, employee_id: data[0].id }));
+    const employeeList = data?.map(er => er.employee).filter(Boolean) || [];
+    setEmployees(employeeList as Employee[]);
+    if (employeeList && employeeList.length > 0 && !formData.employee_id) {
+      setFormData(prev => ({ ...prev, employee_id: employeeList[0].id }));
     }
   };
 

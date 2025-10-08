@@ -9,32 +9,50 @@ interface EmployeeListProps {
 
 export function EmployeeList({ restaurant }: EmployeeListProps) {
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [allEmployees, setAllEmployees] = useState<Employee[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [showLinkForm, setShowLinkForm] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     phone: '',
     role: 'server'
   });
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     loadEmployees();
+    loadAllEmployees();
   }, [restaurant.id]);
 
   const loadEmployees = async () => {
     const { data, error } = await supabase
-      .from('employees')
-      .select('*')
-      .eq('restaurant_id', restaurant.id)
-      .order('name');
+      .from('employee_restaurants')
+      .select('employee:employees(*)')
+      .eq('restaurant_id', restaurant.id);
 
     if (error) {
       console.error('Error loading employees:', error);
       return;
     }
 
-    setEmployees(data || []);
+    const employeeList = data?.map(er => er.employee).filter(Boolean) || [];
+    setEmployees(employeeList as Employee[]);
+  };
+
+  const loadAllEmployees = async () => {
+    const { data, error } = await supabase
+      .from('employees')
+      .select('*')
+      .order('name');
+
+    if (error) {
+      console.error('Error loading all employees:', error);
+      return;
+    }
+
+    setAllEmployees(data || []);
   };
 
   const handleAddEmployee = async (e: React.FormEvent) => {
@@ -42,34 +60,81 @@ export function EmployeeList({ restaurant }: EmployeeListProps) {
     if (!formData.name.trim()) return;
 
     setLoading(true);
-    const { data, error } = await supabase
+
+    const { data: newEmployee, error: employeeError } = await supabase
       .from('employees')
-      .insert([{ ...formData, restaurant_id: restaurant.id }])
+      .insert([formData])
       .select()
       .single();
 
-    setLoading(false);
-
-    if (error) {
-      console.error('Error adding employee:', error);
+    if (employeeError) {
+      console.error('Error adding employee:', employeeError);
+      setLoading(false);
       return;
     }
 
-    setEmployees([...employees, data]);
+    const { error: linkError } = await supabase
+      .from('employee_restaurants')
+      .insert([{
+        employee_id: newEmployee.id,
+        restaurant_id: restaurant.id,
+        primary_location: true
+      }]);
+
+    setLoading(false);
+
+    if (linkError) {
+      console.error('Error linking employee to restaurant:', linkError);
+      return;
+    }
+
+    setEmployees([...employees, newEmployee]);
+    setAllEmployees([...allEmployees, newEmployee]);
     setFormData({ name: '', email: '', phone: '', role: 'server' });
     setShowAddForm(false);
   };
 
-  const handleDeleteEmployee = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this employee?')) return;
+  const handleLinkEmployee = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedEmployeeId) return;
+
+    setLoading(true);
 
     const { error } = await supabase
-      .from('employees')
-      .delete()
-      .eq('id', id);
+      .from('employee_restaurants')
+      .insert([{
+        employee_id: selectedEmployeeId,
+        restaurant_id: restaurant.id,
+        primary_location: false
+      }]);
+
+    setLoading(false);
 
     if (error) {
-      console.error('Error deleting employee:', error);
+      if (error.code === '23505') {
+        alert('This employee is already linked to this restaurant.');
+      } else {
+        console.error('Error linking employee:', error);
+      }
+      return;
+    }
+
+    await loadEmployees();
+    setSelectedEmployeeId('');
+    setShowLinkForm(false);
+  };
+
+  const handleUnlinkEmployee = async (id: string) => {
+    if (!confirm('Remove this employee from this restaurant?')) return;
+
+    const { error } = await supabase
+      .from('employee_restaurants')
+      .delete()
+      .eq('employee_id', id)
+      .eq('restaurant_id', restaurant.id);
+
+    if (error) {
+      console.error('Error unlinking employee:', error);
       return;
     }
 
@@ -83,14 +148,68 @@ export function EmployeeList({ restaurant }: EmployeeListProps) {
           <Users className="w-5 h-5" />
           Employees
         </h2>
-        <button
-          onClick={() => setShowAddForm(!showAddForm)}
-          className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          Add Employee
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => {
+              setShowAddForm(!showAddForm);
+              setShowLinkForm(false);
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            New Employee
+          </button>
+          <button
+            onClick={() => {
+              setShowLinkForm(!showLinkForm);
+              setShowAddForm(false);
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            Link Existing
+          </button>
+        </div>
       </div>
+
+      {showLinkForm && (
+        <form onSubmit={handleLinkEmployee} className="mb-4 p-4 bg-blue-50 rounded-lg">
+          <h3 className="text-sm font-semibold text-gray-700 mb-3">Link Existing Employee</h3>
+          <div className="space-y-3">
+            <select
+              value={selectedEmployeeId}
+              onChange={(e) => setSelectedEmployeeId(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              required
+            >
+              <option value="">Select an employee</option>
+              {allEmployees
+                .filter(emp => !employees.find(e => e.id === emp.id))
+                .map(emp => (
+                  <option key={emp.id} value={emp.id}>
+                    {emp.name} ({emp.role})
+                  </option>
+                ))}
+            </select>
+            <div className="flex gap-2">
+              <button
+                type="submit"
+                disabled={loading}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              >
+                {loading ? 'Linking...' : 'Link'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowLinkForm(false)}
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </form>
+      )}
 
       {showAddForm && (
         <form onSubmit={handleAddEmployee} className="mb-4 p-4 bg-gray-50 rounded-lg">
@@ -163,9 +282,9 @@ export function EmployeeList({ restaurant }: EmployeeListProps) {
               </div>
             </div>
             <button
-              onClick={() => handleDeleteEmployee(employee.id)}
+              onClick={() => handleUnlinkEmployee(employee.id)}
               className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-              title="Delete employee"
+              title="Remove from this restaurant"
             >
               <Trash2 className="w-4 h-4" />
             </button>
