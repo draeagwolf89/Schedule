@@ -166,7 +166,7 @@ export function EmployeeList({ restaurant }: EmployeeListProps) {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Roles (select all that apply)
               </label>
-              <div className="flex gap-2">
+              <div className="flex gap-2 mb-2">
                 {ROLES.map(role => (
                   <button
                     key={role.value}
@@ -174,7 +174,7 @@ export function EmployeeList({ restaurant }: EmployeeListProps) {
                     onClick={() => toggleRole(role.value)}
                     className={`px-4 py-2 rounded-lg border transition-colors ${
                       formData.roles.includes(role.value)
-                        ? 'bg-green-600 text-white border-green-600'
+                        ? 'bg-red-600 text-white border-red-600'
                         : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
                     }`}
                   >
@@ -184,7 +184,7 @@ export function EmployeeList({ restaurant }: EmployeeListProps) {
               </div>
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex gap-2 mt-6">
               <button
                 type="submit"
                 disabled={loading}
