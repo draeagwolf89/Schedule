@@ -81,8 +81,14 @@ export function EmployeeList({ restaurant }: EmployeeListProps) {
 
     setLoading(true);
 
+    // Ensure email has proper format - if it doesn't contain @, add @app.local
+    let emailForAuth = formData.email.trim();
+    if (!emailForAuth.includes('@')) {
+      emailForAuth = `${emailForAuth}@app.local`;
+    }
+
     const { data: authData, error: authError } = await supabase.auth.signUp({
-      email: formData.email,
+      email: emailForAuth,
       password: formData.password,
       options: {
         emailRedirectTo: undefined,
@@ -108,7 +114,7 @@ export function EmployeeList({ restaurant }: EmployeeListProps) {
       .from('employees')
       .insert([{
         name: formData.name,
-        email: formData.email,
+        email: emailForAuth,
         roles: formData.roles,
         auth_user_id: authData.user.id
       }])
