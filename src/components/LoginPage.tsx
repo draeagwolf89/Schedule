@@ -48,6 +48,8 @@ export function LoginPage() {
       return;
     }
 
+    localStorage.removeItem('employee_id');
+    localStorage.removeItem('employee_username');
     window.location.reload();
   };
 
